@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
+
+    - name: Check params.yaml exists
+      run: |
+        python -c "
+        import yaml
+        with open('params.yaml') as f:
+            cfg = yaml.safe_load(f)
+        for h in ['h1','h2','h3','h4']:
+            assert h in cfg, f'Missing section: {h}'
+            assert 'thresholds' in cfg[h], f'Missing thresholds for {h}'
+        print('params.yaml validation passed')
+        "

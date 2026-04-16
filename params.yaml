@@ -1,0 +1,61 @@
+# params.yaml — French-Learning-Perceptions-in-Plurilingual-Cameroon
+# All hyperparameters externalized (Level 1 MLOps)
+# Edit here — never hardcode values in source files.
+
+data:
+  raw_path:       "data/raw/data_FLP.csv"
+  processed_dir:  "data/processed"
+  consent_value:  "accepte"
+  test_size:      0.15
+  val_size:       0.15
+  random_state:   42
+
+mlflow:
+  tracking_uri: "mlruns"
+  experiments:
+    h1: "FLP_H1_Multilingual_Repertoire"
+    h2: "FLP_H2_French_Representations"
+    h3: "FLP_H3_Plurilingual_Exposure"
+    h4: "FLP_H4_Local_Language_Integration"
+
+h1:
+  n_estimators: 300
+  max_depth: 5
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  cv_folds: 5
+  smote: true
+  thresholds:
+    f1_macro: 0.70
+    roc_auc:  0.75
+
+h2:
+  n_estimators: 200
+  max_depth: 4
+  learning_rate: 0.08
+  cv_folds: 5
+  thresholds:
+    f1_weighted_A: 0.65
+    f1_micro_B:    0.72
+
+h3:
+  n_estimators_reg: 300
+  n_estimators_clf: 200
+  max_depth: 6
+  cv_folds: 5
+  causal: true
+  thresholds:
+    mae:         0.50
+    f1_weighted: 0.68
+    pearson_p:   0.05
+
+h4:
+  n_estimators: 200
+  max_depth: 4
+  learning_rate: 0.08
+  cv_folds: 5
+  thresholds:
+    f1_A:       0.70
+    spearman_B: 0.55
+    subset_C:   0.45

@@ -1,0 +1,13 @@
+# CODEOWNERS — Plurilingual-Representation
+# These users must review PRs that touch these files.
+# Replace YOUR_GITHUB_USERNAME with your actual GitHub username.
+
+# Core ML code — only the owner can approve changes
+/src/                   @YOUR_GITHUB_USERNAME
+/params.yaml            @YOUR_GITHUB_USERNAME
+/.claude/               @YOUR_GITHUB_USERNAME
+/tests/                 @YOUR_GITHUB_USERNAME
+/notebooks/             @YOUR_GITHUB_USERNAME
+
+# GitHub configuration — owner only
+/.github/               @YOUR_GITHUB_USERNAME
