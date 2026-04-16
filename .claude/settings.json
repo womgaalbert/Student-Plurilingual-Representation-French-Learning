@@ -1,0 +1,38 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "permissions": {
+    "allow": [
+      "Bash(python*)",
+      "Bash(pytest*)",
+      "Bash(mlflow*)",
+      "Bash(pip*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Read(data/processed/**)",
+      "Read(.claude/**)",
+      "Read(src/**)",
+      "Write(models/**)",
+      "Write(reports/**)",
+      "Write(logs/**)",
+      "Write(data/processed/**)",
+      "Write(mlruns/**)"
+    ],
+    "deny": [
+      "Write(data/raw/**)",
+      "Bash(rm -rf*)"
+    ]
+  },
+  "hooks": {
+    "pre_tool_use": ".claude/hooks/validate-bash.ps1"
+  },
+  "context": {
+    "auto_load_skills": true,
+    "skill_trigger": {
+      "H1": ".claude/skills/h1-mobilisation/SKILL.md",
+      "H2": ".claude/skills/h2-representations/SKILL.md",
+      "H3": ".claude/skills/h3-exposition/SKILL.md",
+      "H4": ".claude/skills/h4-integration/SKILL.md"
+    }
+  }
+}

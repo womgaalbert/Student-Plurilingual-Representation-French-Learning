@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it."
+title: "French-Learning-Perceptions-in-Plurilingual-Cameroon"
+abstract: >
+  ML research platform analyzing French-language learning representations
+  among Cameroonian secondary school students in plurilingual contexts.
+  Supports doctoral thesis research by Chancelline Armelle Nongni Kendjio.
+authors:
+  - family-names: "Nongni Kendjio"
+    given-names: "Chancelline Armelle"
+    orcid: ""
+    affiliation: ""
+keywords:
+  - French NLP
+  - multilingualism
+  - Cameroon
+  - educational AI
+  - plurilingualism
+  - machine learning
+  - sociolinguistics
+license: MIT
+repository-code: "https://github.com/YOUR_USERNAME/Student-Plurilingual-Representation-French-Learning"

@@ -1,0 +1,45 @@
+# ── Python ───────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Data (NEVER version raw data — privacy) ───────────────────────
+data/raw/
+*.csv
+!data/processed/.gitkeep
+
+# ── ML Artifacts (tracked via MLflow, not Git) ────────────────────
+models/
+encoders/
+mlruns/
+mlflow.db
+!models/**/.gitkeep
+
+# ── Logs & reports ────────────────────────────────────────────────
+logs/
+reports/
+!reports/.gitkeep
+
+# ── Notebooks checkpoints ─────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# ── Windows ───────────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+*.lnk
+
+# ── VS Code ───────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ── Environment ───────────────────────────────────────────────────
+.env
+*.env
+secrets.yaml
