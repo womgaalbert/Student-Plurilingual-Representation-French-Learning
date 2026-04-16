@@ -9,7 +9,7 @@ Researcher : Chancelline Armelle Nongni Kendjio
 Technical  : AI/ML Engineering support
 
 ## GitHub Repository
-https://github.com/YOUR_USERNAME/Student-Plurilingual-Representation-French-Learning
+https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
 
 ## Environment
 - OS        : Windows (PowerShell / VS Code terminal)
