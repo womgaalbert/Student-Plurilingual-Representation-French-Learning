@@ -172,15 +172,15 @@ class TestH1Features:
 class TestH2Features:
 
     def test_h2_perception_onehot(self, clean_df):
-        """Ind.1 VI — colonnes perc_* créées."""
+        """Ind.1 VI — colonnes perc_* créées (tronquées à 8 caractères)."""
         h2 = build_h2(clean_df)
-        for lbl in ["perc_utile", "perc_belle", "perc_difficile", "perc_importante"]:
+        for lbl in ["perc_utile", "perc_belle", "perc_difficil", "perc_importan"]:
             assert lbl in h2.columns
 
     def test_h2_perception_binary(self, clean_df):
-        """Ind.1 VI — perc_* ∈ {0, 1}."""
+        """Ind.1 VI — perc_* ∈ {0, 1} (colonnes tronquées à 8 caractères)."""
         h2 = build_h2(clean_df)
-        for lbl in ["perc_utile", "perc_belle", "perc_difficile", "perc_importante"]:
+        for lbl in ["perc_utile", "perc_belle", "perc_difficil", "perc_importan"]:
             assert h2[lbl].isin([0, 1]).all()
 
     def test_h2_hierarchie_range(self, clean_df):
@@ -224,10 +224,11 @@ class TestH3Features:
         h3 = build_h3(clean_df)
         assert h3["h3_attitude_class"].isin(["Positive", "Neutre", "Négative"]).all()
 
-    def test_h3_exposition_freq_range(self, clean_df):
-        """Ind.1 VI — exposition_freq ∈ [0, 4]."""
+    def test_h3_exposition_bin_range(self, clean_df):
+        """Ind.1 VI — exposition_bin ∈ {0, 1} (binaire Oui/Non)."""
         h3 = build_h3(clean_df)
-        assert h3["exposition_freq"].between(0, 4).all()
+        assert "exposition_bin" in h3.columns
+        assert h3["exposition_bin"].isin([0, 1]).all()
 
     def test_h3_interet_binary(self, clean_df):
         """Ind.2 VI — interet_bin ∈ {-1, 0, 1}."""

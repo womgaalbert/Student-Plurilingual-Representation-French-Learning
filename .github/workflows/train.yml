@@ -1,0 +1,89 @@
+# .github/workflows/train.yml — Level 2 MLOps
+# Entraînement automatique sur push vers main/dev
+# + déploiement conditionnel si les seuils sont atteints
+
+name: Train & Evaluate Pipeline
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "params.yaml"
+      - "data/processed/**"
+      - ".github/workflows/train.yml"
+  schedule:
+    - cron: "0 7 * * 1"  # chaque lundi à 7h UTC
+  workflow_dispatch:      # déclenchement manuel
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-camembert-base-${{ hashFiles('params.yaml') }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install spacy
+          python -m spacy download fr_core_news_sm
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Preprocess + Train full pipeline
+        run: python src/pipeline.py --config params.yaml
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Register models (staging)
+        if: success()
+        run: python scripts/register_models.py
+
+      - name: Validate thresholds
+        id: validate
+        run: |
+          python -c "
+          import json
+          with open('reports/rapport_evaluation_*.json') as f:
+              data = json.load(f)
+          # Vérifier H1 et H2 (bloquants)
+          h1_ok = data['hypotheses']['H1']['validated']
+          h2_ok = data['hypotheses']['H2']['validated']
+          if h1_ok and h2_ok:
+              print(f'✅ H1={h1_ok} H2={h2_ok} → déploiement autorisé')
+          else:
+              raise SystemExit(f'❌ Seuils non atteints: H1={h1_ok} H2={h2_ok}')
+          "
+
+      - name: Promote to production
+        if: steps.validate.outcome == 'success'
+        run: |
+          python -c "
+          import mlflow
+          from mlflow.tracking import MlflowClient
+          mlflow.set_tracking_uri('sqlite:///mlflow.db')
+          client = MlflowClient()
+          for name in ['FLP_H1_usage_quotidien', 'FLP_H2_motivation_difficultes']:
+              versions = client.search_model_versions(f\"name='{name}'\")
+              for v in versions:
+                  if v.current_stage == 'staging':
+                      client.transition_model_version_stage(name, v.version, 'production')
+                      print(f'✅ {name} v{v.version} → production')
+          "

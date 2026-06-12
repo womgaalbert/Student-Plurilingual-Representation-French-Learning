@@ -4,6 +4,7 @@ Pipeline de nettoyage et encodage pour les 4 hypothèses.
 Usage : python src/preprocess.py --config params.yaml
 """
 import re
+import unicodedata
 import argparse
 import logging
 import pickle
@@ -13,8 +14,9 @@ import numpy as np
 import pandas as pd
 
 from utils.config import load_config
+from utils.embeddings import build_camembert_features
 from utils.constants import (
-    CSV_COLUMN_MAP, FREQ_MAP, LIKERT_MAP, IMPORTANCE_MAP, RELATION_LM_MAP,
+    CSV_COLUMN_MAP, FREQ_MAP, LIKERT_MAP, IMPORTANCE_MAP, RELATION_LM_MAP, INTERET_MAP,
     DIFFICULTE_KEYWORDS, DISCIPLINE_KEYWORDS,
     MOTIVATION_HIGH_KW, MOTIVATION_LOW_KW,
     COL_CONSENTEMENT, COL_AGE, COL_SEXE, COL_REGION,
@@ -78,13 +80,38 @@ def motivation_label(text) -> int:
 
 # ── Pipeline ─────────────────────────────────────────────────────────────────
 
+def _norm(s: str) -> str:
+    """Robust header normalization for fuzzy column matching.
+    Strips all non-ASCII (handles garbled accents + PUA chars), quotes, and hyphens
+    so both CSV headers and map keys reduce to the same ASCII base form.
+    """
+    s = s.lower().strip()
+    s = re.sub(r"[^\x00-\x7f]", "", s)  # strip non-ASCII (accents, PUA chars)
+    for ch in ("\x27", "\x22", "\x60", "\x2d"):
+        s = s.replace(ch, " " if ch == "\x2d" else "")
+    return re.sub(r"\s+", " ", s)
+
+
 def load_and_rename(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
+    # Sort longest-first: more specific keys win over short ambiguous ones.
+    sorted_map = sorted(CSV_COLUMN_MAP.items(), key=lambda kv: len(kv[0]), reverse=True)
     rename = {}
+    used_shorts: set = set()  # prevent two CSV cols mapping to the same short name
     for col in df.columns:
-        for csv_name, short in CSV_COLUMN_MAP.items():
-            if csv_name.strip() in col.strip() or col.strip() in csv_name.strip():
+        col_n = _norm(col)
+        for csv_name, short in sorted_map:
+            if short in used_shorts:
+                continue
+            csv_n = _norm(csv_name)
+            if not col_n or not csv_n:
+                continue
+            # Require the shorter string to be at least 50% the length of the longer
+            # to avoid "classe ?" falsely matching inside a long question text.
+            ratio = min(len(col_n), len(csv_n)) / max(len(col_n), len(csv_n))
+            if ratio >= 0.50 and (csv_n in col_n or col_n in csv_n):
                 rename[col] = short
+                used_shorts.add(short)
                 break
     return df.rename(columns=rename)
 
@@ -129,34 +156,47 @@ def build_h1(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_h2(df: pd.DataFrame) -> pd.DataFrame:
     h = df.copy()
-    for lbl in ["utile", "belle", "difficile", "importante"]:
-        h[f"perc_{lbl}"] = h[COL_PERCEPTION_FR].str.lower().str.contains(lbl, na=False).astype(int)
+    # Extended perception labels (all 10 from PERCEPTION_LABELS)
+    for lbl in ["utile", "belle", "difficile", "importante", "compliqu",
+                "intéressante", "ennuyeuse", "nécessaire", "riche", "obligatoire"]:
+        h[f"perc_{lbl[:8]}"] = h[COL_PERCEPTION_FR].str.lower().str.contains(lbl, na=False).astype(int)
     h["mots_assoc_sent"]    = h[COL_MOTS_ASSOCIES].apply(simple_sentiment)
     h["importance_bin"]     = h[COL_IMPORTANCE_FR].apply(extract_oui_non)
     h["importance_sent"]    = h[COL_IMPORTANCE_FR].apply(simple_sentiment)
     h["hierarchie_fr"]      = h[COL_COMPARAISON_FR].str.lower().map(
         {k.lower(): v for k, v in IMPORTANCE_MAP.items()}).fillna(2.0)
     h["h2_target_motivation"] = h[COL_MOTIVATION].apply(motivation_label)
+    # Difficulty targets (COL_DIFFICILE + COL_DIFFICULTES + COL_ORIGINE_DIFF)
     txt_diff = (h[COL_DIFFICILE].fillna("") + " " +
                 h[COL_DIFFICULTES].fillna("") + " " +
                 h[COL_ORIGINE_DIFF].fillna(""))
     for label, kws in DIFFICULTE_KEYWORDS.items():
         h[f"diff_{label}"] = txt_diff.str.lower().apply(
             lambda t: int(any(k in t for k in kws)))
+    # Facile features — what is easy for the student (negatively correlated with difficulties)
+    txt_facile = h[COL_FACILE].fillna("")
+    for label, kws in DIFFICULTE_KEYWORDS.items():
+        h[f"facile_{label}"] = txt_facile.str.lower().apply(
+            lambda t: int(any(k in t for k in kws)))
     return h
 
 def build_h3(df: pd.DataFrame) -> pd.DataFrame:
     h = df.copy()
-    h["exposition_freq"]        = h[COL_EXPOSITION].map(FREQ_MAP).fillna(0)
-    h["interet_bin"]            = h[COL_INTERET_APPRENDRE].apply(extract_oui_non)
+    # exposition: binary "Oui/Non" (typos like "Oio" also treated as Oui)
+    h["exposition_bin"] = h[COL_EXPOSITION].str.strip().str[:3].str.lower().apply(
+        lambda x: 1 if x in ("oui", "oio") else 0)
+    h["interet_bin"]            = h[COL_INTERET_APPRENDRE].apply(extract_oui_non).clip(lower=0)
     h["interet_sent"]           = h[COL_INTERET_APPRENDRE].apply(simple_sentiment)
     h["perception_multi_sent"]  = h[COL_PERCEPTION_MULTI].apply(simple_sentiment)
     h["perception_multi_ord"]   = h[COL_PERCEPTION_MULTI].map(LIKERT_MAP).fillna(2.5)
 
+    # s2 scale: "Très bien"→2.0, "Bien"→1.5, "Un peu"→1.0, "Pas du tout"→0.5
+    _S2 = {"Très bien": 2.0, "Bien": 1.5, "Un peu": 1.0, "Pas du tout": 0.5}
+
     def attitude_score(row) -> float:
         comp = str(row.get(COL_COMPARAISON_FR, "")).lower()
         s1 = 3.0 if "plus" in comp else (2.0 if "autant" in comp else 1.0)
-        s2 = 2.0 if str(row.get(COL_MOTIVATION_CAMERO, "")).upper().startswith("OUI") else 0.5
+        s2 = _S2.get(str(row.get(COL_MOTIVATION_CAMERO, "")).strip(), 0.5)
         return float(np.clip(1 + ((s1 / 3.0 * 3 + s2 / 2.0 * 2) / 5.0) * 4, 1.0, 5.0))
 
     h["h3_score_attitude"] = h.apply(attitude_score, axis=1)
@@ -166,7 +206,8 @@ def build_h3(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_h4(df: pd.DataFrame) -> pd.DataFrame:
     h = df.copy()
-    h["interet_camarades_bin"]  = h[COL_INTERET_CAMARADES].apply(extract_oui_non)
+    # interet_camarades: ordinal 0-3 from INTERET_MAP ("Très bien/Bien/Un peu/Pas du tout")
+    h["interet_camarades_ord"]  = h[COL_INTERET_CAMARADES].str.strip().map(INTERET_MAP).fillna(0).astype(int)
     h["interet_camarades_sent"] = h[COL_INTERET_CAMARADES].apply(simple_sentiment)
     h["souhait_freq"]           = h[COL_INCLURE_LANGUES].map(FREQ_MAP).fillna(0)
     disc_list = h[COL_DISCIPLINE_ASSOC].apply(
@@ -174,10 +215,14 @@ def build_h4(df: pd.DataFrame) -> pd.DataFrame:
     for disc in DISCIPLINE_KEYWORDS:
         h[f"vi_disc_{disc}"] = disc_list.apply(lambda l: int(disc in l))
         h[f"vd_disc_{disc}"] = h[f"vi_disc_{disc}"]
-    h["h4_target_motivation"] = h[COL_MOTIVATION_CAMERO].apply(extract_oui_non).replace(-1, 0)
+    # target_motivation: binary — "Très bien"/"Bien" → 1,  "Un peu"/"Pas du tout" → 0
+    h["h4_target_motivation"] = h[COL_MOTIVATION_CAMERO].str.strip().map(INTERET_MAP).fillna(0).apply(
+        lambda v: 1 if v >= 2 else 0).astype(int)
 
     def engagement(row) -> int:
-        m = 2 if str(row.get(COL_MOTIVATION_CAMERO, "")).upper().startswith("OUI") else 0
+        # m ∈ {0, 2} based on motivation scale; f ∈ {0..4} from souhait_freq
+        m_val = INTERET_MAP.get(str(row.get(COL_MOTIVATION_CAMERO, "")).strip(), 0)
+        m = 2 if m_val >= 2 else 0
         f = FREQ_MAP.get(str(row.get(COL_INCLURE_LANGUES, "")), 0)
         raw = m + (f / 4.0) * 2
         return 4 if raw >= 3.5 else (3 if raw >= 2.5 else (2 if raw >= 1.0 else 1))
@@ -204,9 +249,41 @@ def run(config_path: str) -> None:
     df.to_csv(out / "french-learning-perceptions_clean.csv", index=False, encoding="utf-8-sig")
     log.info(f"Dataset nettoyé : {len(df)} répondants")
 
+    descfg   = cfg.get("descriptive", {})
+    emb_model = descfg.get("camembert_model", "camembert-base")
+    emb_n_pca = descfg.get("camembert_n_components", 20)
+    emb_dev   = descfg.get("camembert_device", "cpu")
+
     for name, builder in [("h1", build_h1), ("h2", build_h2),
                            ("h3", build_h3), ("h4", build_h4)]:
         df_h = builder(df)
+
+        # Phase 4 : CamemBERT embeddings → PCA features (H3 & H4 uniquement)
+        if name == "h3":
+            txt_cols = [c for c in [COL_INTERET_APPRENDRE, COL_PERCEPTION_MULTI,
+                                    COL_MOTIVATION_CAMERO] if c in df_h.columns]
+            if txt_cols:
+                emb = build_camembert_features(df_h, txt_cols,
+                                               n_components=emb_n_pca,
+                                               model_name=emb_model,
+                                               device=emb_dev,
+                                               prefix="emb_pca")
+                df_h = pd.concat([df_h, emb], axis=1)
+                log.info(f"H3 : {emb.shape[1]} features CamemBERT ajoutées")
+
+        if name == "h4":
+            txt_cols = [c for c in [COL_DIFFICULTES, COL_ORIGINE_DIFF,
+                                    COL_DISCIPLINE_ASSOC, COL_INTERET_CAMARADES]
+                        if c in df_h.columns]
+            if txt_cols:
+                emb = build_camembert_features(df_h, txt_cols,
+                                               n_components=emb_n_pca,
+                                               model_name=emb_model,
+                                               device=emb_dev,
+                                               prefix="emb_pca")
+                df_h = pd.concat([df_h, emb], axis=1)
+                log.info(f"H4 : {emb.shape[1]} features CamemBERT ajoutées")
+
         df_h.to_csv(out / f"{name}_features.csv", index=False, encoding="utf-8-sig")
         log.info(f"{name.upper()} : {len(df_h)} lignes sauvegardées")
 
