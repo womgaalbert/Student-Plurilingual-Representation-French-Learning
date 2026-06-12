@@ -93,8 +93,14 @@ def run(config_path: str = "params.yaml", results: Dict = None) -> Dict:
 
     ts   = datetime.now().strftime('%Y%m%d_%H%M')
     path = Path("reports") / f"rapport_evaluation_{ts}.json"
+    def _serial(obj):
+        if isinstance(obj, (bool, int, float, str, type(None))): return obj
+        if isinstance(obj, dict):  return {k: _serial(v) for k, v in obj.items()}
+        if isinstance(obj, list):  return [_serial(v) for v in obj]
+        return str(obj)
+
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
+        json.dump(_serial(report), f, ensure_ascii=False, indent=2)
     log.info(f"\nRapport → {path}")
     log.info(f"Hypothèses validées : {n_ok}/4 | {report['synthese']['statut']}")
     return report
