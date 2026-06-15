@@ -33,7 +33,6 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 from scipy.stats import pearsonr, spearmanr
 import xgboost as xgb
 import lightgbm as lgb
-import shap
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils.config import load_config
@@ -128,6 +127,7 @@ def train_h1(cfg: dict) -> dict:
         # SHAP
         top5 = []
         try:
+            import shap
             explainer = shap.TreeExplainer(model.named_steps["model"])
             X_sc = model[:-1].transform(X_te)
             sv = explainer.shap_values(X_sc)
