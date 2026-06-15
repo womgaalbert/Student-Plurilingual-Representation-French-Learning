@@ -1,7 +1,11 @@
 # French-Learning-Perceptions ML — requirements.txt
-# Windows : pip install -r requirements.txt (dans .venv activé)
+# Streamlit Cloud : dependances legeres pour chargement .pkl uniquement
+# Requirements complets pour dev local : voir deploy_cloud/requirements-full.txt
 
-# Core
+# Dashboard
+streamlit>=1.28
+
+# Core ML (chargement modeles .pkl)
 pandas>=2.0
 numpy>=1.24
 scikit-learn>=1.3
@@ -10,36 +14,9 @@ imbalanced-learn>=0.11
 scipy>=1.11
 pyyaml>=6.0
 
-# MLflow (Level 1)
+# MLflow (tracking)
 mlflow>=2.8
 
-# NLP français
-transformers>=4.35
-torch>=2.0
-sentence-transformers>=2.2
-# spacy — installer séparément :
-# pip install spacy && python -m spacy download fr_core_news_sm
-
-# Explicabilité
-shap>=0.43
-
-# Causal (H3)
-dowhy>=0.10
-econml>=0.14
-
-# Ordinal (H4)
-mord>=0.6
-
-# Visualisation
+# Visualisation (base)
 matplotlib>=3.7
 seaborn>=0.12
-umap-learn>=0.5
-wordcloud>=1.9
-networkx>=3.1
-
-# Tests
-pytest>=7.4
-pytest-cov>=4.1
-
-# Utilitaires Windows
-colorama>=0.4   # couleurs terminal Windows
