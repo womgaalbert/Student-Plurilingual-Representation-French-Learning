@@ -18,6 +18,10 @@ scipy>=1.11
 # MLflow (tracking)
 mlflow>=2.8
 
+# Tests (CI)
+pytest>=7.4
+pytest-cov>=4.1
+
 # Visualisation (base)
 matplotlib>=3.7
 seaborn>=0.12
