@@ -22,6 +22,7 @@ mlflow.db
 
 # ── Logs & reports ────────────────────────────────────────────────
 logs/
+!logs/.gitkeep
 reports/
 !reports/.gitkeep
 
