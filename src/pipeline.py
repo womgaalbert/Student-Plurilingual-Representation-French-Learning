@@ -21,6 +21,7 @@ from descriptive_analysis import run_full as run_descriptive
 from train import train_h1, train_h2, train_h3, train_h4, tune_h2, tune_h3, tune_h4
 from evaluate import run as run_evaluate
 
+Path("logs").mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",

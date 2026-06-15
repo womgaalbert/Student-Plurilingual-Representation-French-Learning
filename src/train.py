@@ -41,6 +41,7 @@ from utils.mlflow_utils import (setup_mlflow, log_params_from_config,
                                   log_metrics, log_thresholds_met,
                                   log_artifact_json, log_model_artifact)
 
+Path("logs").mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
