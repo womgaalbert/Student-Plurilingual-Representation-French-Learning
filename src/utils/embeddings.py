@@ -10,11 +10,24 @@ import logging
 
 import numpy as np
 import pandas as pd
-import torch
 from sklearn.decomposition import PCA
-from transformers import AutoTokenizer, AutoModel
 
 log = logging.getLogger(__name__)
+
+# Lazy imports — torch & transformers are heavy (only needed for CamemBERT)
+_TORCH = None
+_TRANSFORMERS_AVAILABLE = False
+
+
+def _ensure_torch_and_transformers():
+    """Lazy-load torch and transformers (only when CamemBERT is actually used)."""
+    global _TORCH
+    if _TORCH is not None:
+        return _TORCH
+    import torch as _t
+    from transformers import AutoTokenizer, AutoModel  # noqa: F811
+    _TORCH = _t
+    return _t
 
 
 def _mean_pool(
@@ -26,9 +39,10 @@ def _mean_pool(
     device: str = "cpu",
 ) -> np.ndarray:
     """Mean-pooled CamemBERT embeddings (shape: N × 768)."""
+    torch_mod = _ensure_torch_and_transformers()
     all_embs = []
     model.eval()
-    with torch.no_grad():
+    with torch_mod.no_grad():
         for i in range(0, len(texts), batch_size):
             batch = [str(t) if pd.notna(t) else "" for t in texts[i : i + batch_size]]
             enc = tokenizer(
@@ -69,6 +83,8 @@ def build_camembert_features(
         log.warning("build_camembert_features: aucune colonne texte trouvée dans df.")
         return pd.DataFrame(index=df.index)
 
+    _ensure_torch_and_transformers()
+    from transformers import AutoTokenizer, AutoModel
     log.info(f"CamemBERT — chargement du modèle ({model_name}) sur {device}…")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_name).to(device)
