@@ -137,66 +137,77 @@ def t(key: str) -> str:
 
 @st.cache_resource
 def load_models():
-    """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud.
-    Cherche d'abord dans models/, puis dans deploy_cloud/models/ (fallback)."""
+    """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud."""
     import pickle as _pk
     models, feats = {}, {}
 
-    # Priorité : models/ local, puis deploy_cloud/models/ (Streamlit Cloud)
+    # Dossier models : local ou deploy_cloud (Streamlit Cloud)
     candidates = [Path("models"), Path("deploy_cloud/models")]
-    model_dir = next((d for d in candidates if d.is_dir() and any(d.glob("h*/*.pkl"))), candidates[0])
+    model_dir = candidates[0]
+    for d in candidates:
+        if d.is_dir() and any(d.glob("h*/*.pkl")):
+            model_dir = d
+            break
 
-    _latest = lambda pattern: sorted(
-        model_dir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True
-    )
+    def _latest(pattern):
+        return sorted(model_dir.glob(pattern),
+                      key=lambda p: p.stat().st_mtime, reverse=True)
+
+    def _load(key, pattern, path_hint=""):
+        try:
+            files = _latest(pattern)
+            if files:
+                with open(files[0], "rb") as f:
+                    models[key] = _pk.load(f)
+                try:
+                    feats[key] = list(models[key].feature_names_in_)
+                except Exception:
+                    feats[key] = []
+                return True
+        except Exception as e:
+            st.warning(f"Modèle {path_hint or key} non chargé: {e}")
+        return False
 
     # H1
-    h1 = _latest("h1/*.pkl")
-    if h1:
-        with open(h1[0], "rb") as f: models["h1"] = _pk.load(f)
-        try: feats["h1"] = list(models["h1"].feature_names_in_)
-        except Exception: feats["h1"] = []
-
-    # H2 (tuned — motivation pipeline)
-    h2 = _latest("h2/*A_motivation_tuned*.pkl")
-    if h2:
-        with open(h2[0], "rb") as f: models["h2"] = _pk.load(f)
-        try: feats["h2"] = list(models["h2"].feature_names_in_)
-        except Exception: feats["h2"] = []
-
-    # H3 (reg + clf)
-    for suffix, key in [("*reg_tuned*.pkl", "h3_reg"), ("*clf_tuned*.pkl", "h3_clf")]:
-        mf = _latest(f"h3/{suffix}")
-        if mf:
-            with open(mf[0], "rb") as f: models[key] = _pk.load(f)
-            try: feats[key] = list(models[key].feature_names_in_)
-            except Exception: feats[key] = []
-
-    # H4 (a, b, c)
-    for suffix, key in [("*A_motivation_tuned*.pkl", "h4_a"),
-                         ("*B_engagement_tuned*.pkl", "h4_b"),
-                         ("*C_discipline_tuned*.pkl", "h4_c")]:
-        mf = _latest(f"h4/{suffix}")
-        if mf:
-            with open(mf[0], "rb") as f: models[key] = _pk.load(f)
-            try: feats[key] = list(models[key].feature_names_in_)
-            except Exception: feats[key] = []
+    _load("h1", "h1/*.pkl", "h1")
+    # H2
+    _load("h2", "h2/*A_motivation_tuned*.pkl", "h2")
+    # H3
+    _load("h3_reg", "h3/*reg_tuned*.pkl", "h3_reg")
+    _load("h3_clf", "h3/*clf_tuned*.pkl", "h3_clf")
+    # H4
+    _load("h4_a", "h4/*A_motivation_tuned*.pkl", "h4_a")
+    _load("h4_b", "h4/*B_engagement_tuned*.pkl", "h4_b")
+    _load("h4_c", "h4/*C_discipline_tuned*.pkl", "h4_c")
 
     return models, feats
 
-MODELS, FEATURE_COLS = load_models()
+try:
+    MODELS, FEATURE_COLS = load_models()
+except Exception as _e:
+    st.error(f"Erreur chargement modèles: {_e}")
+    MODELS, FEATURE_COLS = {}, {}
 
 if not MODELS:
-    import logging
-    logging.warning("Aucun modele .pkl trouve. L'app fonctionne en mode demo (predictions indisponibles).")
+    st.warning("Aucun modèle chargé. L'app fonctionne en mode démo.")
+
+# ── Reports path helper ──────────────────────────────────────────────────────
+
+def _report_dir(subpath: str = "") -> Path:
+    """Retourne le dossier reports (local ou deploy_cloud/reports en fallback)."""
+    for root in (Path("reports"), Path("deploy_cloud/reports")):
+        p = root / subpath
+        if p.exists():
+            return p
+    return Path("reports") / subpath
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 DESCRIPTIVE_DIRS = {
-    "H1": Path("reports/h1/descriptive"),
-    "H2": Path("reports/h2/descriptive"),
-    "H3": Path("reports/h3/descriptive"),
-    "H4": Path("reports/h4/descriptive"),
+    "H1": _report_dir("h1/descriptive"),
+    "H2": _report_dir("h2/descriptive"),
+    "H3": _report_dir("h3/descriptive"),
+    "H4": _report_dir("h4/descriptive"),
 }
 
 INTERPRETATIONS = {
@@ -428,7 +439,7 @@ if hypothesis == t("nav_home"):
     st.markdown(f"### {t('viz')}")
 
     viz_col1, viz_col2, viz_col3 = st.columns(3)
-    reports = Path("reports")
+    reports = _report_dir()
 
     # Wordcloud
     wc = reports / "h1" / "descriptive" / "wordcloud_global.png"
@@ -525,7 +536,7 @@ elif hypothesis == t("nav_h1"):
     # Descriptive H1
     with st.expander(f"📊 {t('descriptive_title')} H1 — CamemBERT + Visualisations", expanded=True):
         st.markdown(CAMEMBERT_TEXT)
-        d = Path("reports/h1/descriptive")
+        d = _report_dir("h1/descriptive")
         imgs = sorted(d.glob("*.png"), key=lambda p: p.name) if d.exists() else []
         if imgs:
             for i, img in enumerate(imgs):
@@ -611,7 +622,7 @@ elif hypothesis == t("nav_h2"):
 
     with st.expander("📊 Analyse descriptive H2 — CamemBERT + Stereotypes", expanded=True):
         st.markdown(CAMEMBERT_TEXT)
-        d = Path("reports/h2/descriptive")
+        d = _report_dir("h2/descriptive")
         imgs = sorted(d.glob("*.png"), key=lambda p: p.name) if d.exists() else []
         if imgs:
             for i, img in enumerate(imgs):
@@ -708,7 +719,7 @@ elif hypothesis == t("nav_h3"):
     with st.expander("📊 Analyse descriptive H3 — CamemBERT + Score attitude", expanded=True):
         st.markdown(CAMEMBERT_TEXT)
         st.markdown("**CamemBERT PCA 20D** integre comme features (variance expliquee 84.8%).")
-        d = Path("reports/h3/descriptive")
+        d = _report_dir("h3/descriptive")
         imgs = sorted(d.glob("*.png"), key=lambda p: p.name) if d.exists() else []
         if imgs:
             for i, img in enumerate(imgs):
@@ -805,7 +816,7 @@ elif hypothesis == t("nav_h4"):
     with st.expander("📊 Analyse descriptive H4 — CamemBERT + Engagement", expanded=True):
         st.markdown(CAMEMBERT_TEXT)
         st.markdown("**CamemBERT PCA 20D** (variance expliquee 88.6%). Gain rho: 0.476→0.561 (+0.085).")
-        d = Path("reports/h4/descriptive")
+        d = _report_dir("h4/descriptive")
         imgs = sorted(d.glob("*.png"), key=lambda p: p.name) if d.exists() else []
         if imgs:
             for i, img in enumerate(imgs):
