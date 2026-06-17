@@ -207,6 +207,32 @@ def _patch_simple_imputer():
 
 _patch_simple_imputer()
 
+# ── Monkey-patch: sklearn 1.6 → 1.9 compat pour ClassifierChain tags ────
+def _patch_classifier_chain_tags():
+    from sklearn.multioutput import ClassifierChain
+    from sklearn.utils._tags import get_tags as _sk_get_tags
+    _orig_tags = ClassifierChain.__sklearn_tags__
+    def _safe_tags(self):
+        try:
+            return _orig_tags(self)
+        except Exception:
+            # Fallback: tags par défaut pour un classifieur multi-output
+            from sklearn.utils._tags import InputTags, TargetTags, Tags
+            return Tags(
+                input_tags=InputTags(two_d_array=True, sparse=True),
+                target_tags=TargetTags(two_d_labels=True),
+                estimator_type="classifier",
+            )
+    ClassifierChain.__sklearn_tags__ = _safe_tags
+    # Patch aussi MultiOutputClassifier au cas où
+    try:
+        from sklearn.multioutput import MultiOutputClassifier
+        MultiOutputClassifier.__sklearn_tags__ = _safe_tags
+    except Exception:
+        pass
+
+_patch_classifier_chain_tags()
+
 try:
     MODELS, FEATURE_COLS = load_models()
 except Exception as _e:
