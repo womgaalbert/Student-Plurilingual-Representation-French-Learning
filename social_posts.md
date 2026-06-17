@@ -1,117 +1,173 @@
 # Social Media Posts — FLP Dashboard Launch
+# Style : Albert Womga — technique, chaleureux, structuré
 
-## LinkedIn — FR
+## LinkedIn — Albert Womga (EN)
 
-🌍 **Nouveau : Dashboard IA pour la recherche en sociolinguistique**
+🌍 The Streamlit dashboard is LIVE — try it now
+   — From PhD research to interactive ML app —
 
-Je suis fière de partager le dashboard interactif issu de ma thèse de recherche à l'Université Marie et Louis Pasteur de Besançon :
+A few weeks ago I shared the first results of our collaboration with
+Chancelline Armelle Nongni Kendjio. The pipeline is now deployed.
 
-👉 **https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/**
-
----
-
-**Contexte** : Comment les élèves du premier cycle de l'enseignement secondaire camerounais perçoivent-ils l'apprentissage du français dans leur environnement plurilingue ?
-
-**500 répondants • 15 établissements • 4 hypothèses validées par Machine Learning**
-
----
-
-### Ce que le dashboard permet de faire :
-
-🔮 **Prédire** le profil d'un élève selon 4 dimensions :
-- **H1** — L'élève mobilise-t-il ses langues au quotidien ? (F1=0.83)
-- **H2** — Sa perception du français prédit-elle sa motivation ? (F1=0.95)
-- **H3** — L'exposition aux autres langues influence-t-elle son attitude ? (MAE=0.51)
-- **H4** — L'intégration des langues locales augmenterait-elle son engagement ? (rho=0.56)
-
-📊 **Explorer** les analyses descriptives : nuages de mots, projections UMAP, stéréotypes détectés, réseaux de co-occurrences
-
-🛠️ **Stack technique** : Python • Scikit-learn • XGBoost • CamemBERT (NLP français) • MLflow • FastAPI • Streamlit • Docker • GitHub Actions
-
----
-
-**3 hypothèses sur 4 validées** ✅✅✅⚠️ — Un travail de 18 mois, du nettoyage des données au déploiement MLOps Niveau 2.
-
-Un immense merci à **Albert Womga** pour son expertise technique en ML Engineering qui a rendu ce projet possible.
-
-🔗 **Dashboard** : https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
-📂 **Code source** : https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
-
-#Recherche #Linguistique #MachineLearning #Cameroun #Plurilinguisme #Streamlit #MLOps #DataScience #These #NLP #CamemBERT
-
----
-
-## LinkedIn — EN
-
-🌍 **New: ML Dashboard for Sociolinguistic Research**
-
-I'm excited to share the interactive dashboard from my PhD research at Université Marie et Louis Pasteur de Besançon (France):
-
-👉 **https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/**
-
----
-
-**Context**: How do Cameroonian secondary school students perceive learning French in their plurilingual environment?
-
-**500 respondents • 15 schools • 4 ML-validated hypotheses**
-
----
-
-### What the dashboard does:
-
-🔮 **Predict** student profiles across 4 dimensions:
-- **H1** — Does multilingual repertoire predict daily language use? (F1=0.83)
-- **H2** — Does perception of French predict motivation level? (F1=0.95)
-- **H3** — Does plurilingual exposure shape attitudes toward French? (MAE=0.51)
-- **H4** — Would integrating local languages increase engagement? (rho=0.56)
-
-📊 **Explore** descriptive NLP analysis: word clouds, UMAP projections, stereotype detection, co-occurrence networks
-
-🛠️ **Tech Stack**: Python • Scikit-learn • XGBoost • CamemBERT (French NLP) • MLflow • FastAPI • Streamlit • Docker • GitHub Actions
-
----
-
-**3 out of 4 hypotheses validated** ✅✅✅⚠️ — 18 months of work, from data cleaning to MLOps Level 2 deployment.
-
-Huge thanks to **Albert Womga** for the ML Engineering expertise that made this possible.
-
-🔗 **Dashboard** : https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
-📂 **Source Code** : https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
-
-#Research #Linguistics #MachineLearning #Cameroon #Plurilingualism #Streamlit #MLOps #DataScience #PhD #NLP #CamemBERT
-
----
-
-## X (Twitter) — FR
-
-🌍 Un dashboard IA pour explorer comment les élèves camerounais perçoivent l'apprentissage du français en contexte plurilingue.
-
-4 hypothèses • 7 modèles ML • 3/4 validées ✅
-
-🔮 Essayez les prédictions interactives :
+🎛️ Interactive dashboard → try any student profile :
 👉 https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
 
-#IA #Cameroun #Recherche #Streamlit
+Chancelline collected data from 500 students across 15 schools in Cameroon.
+Her question : "Does the plurilingual background of Cameroonian students
+influence how they learn French?"
+
+The dashboard lets you explore her findings — live.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔮 WHAT YOU CAN DO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Predict any student profile across H1, H2, H3, H4
+  → adjust age, languages spoken, attitudes, motivation…
+  → see the model's prediction + probability in real time
+
+◆ Explore descriptive NLP analysis
+  → CamemBERT embeddings + UMAP clusters
+  → A Priori categories (Moscovici & Jodelet framework)
+  → Stereotype detection, co-occurrence networks, n-grams
+
+◆ Bilingual UI — toggle FR / EN at any time
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 WHERE WE LANDED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ H1 — Multilingual Repertoire → Daily Language Use
+   XGBoost | F1=0.835 ✅ | AUC=0.851 ✅
+
+◆ H2 — French Perceptions → Motivation & Difficulties
+   ClassifierChain + XGBoost | F1=0.954 ✅ | F1-micro=0.745 ✅
+
+◆ H3 — Plurilingual Exposure → Attitude toward French
+   VotingRegressor (ET + XGBoost) | MAE=0.513 ⚠️ | F1=0.780 ✅
+   CamemBERT PCA 20D integrated — MAE improved -3.4%
+
+◆ H4 — Local Language Integration → Engagement
+   XGBoost multi-task | F1=0.807 ✅ | Spearman ρ=0.561 ✅
+   CamemBERT decisive here : ρ 0.476 → 0.561 (+0.085)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ MLOps — LEVEL 2
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ FastAPI — 8 prediction endpoints on port 8001
+✅ MLflow Model Registry — 7 models tracked
+✅ Docker Compose — API + MLflow server
+✅ GitHub Actions — CI/CD pipeline (42 tests, auto-deploy)
+✅ Streamlit Cloud — public dashboard
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛠️ STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Python · Scikit-learn · XGBoost · LightGBM · CamemBERT (INRIA)
+MLflow · FastAPI · Docker · Streamlit · GitHub Actions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3/4 hypotheses validated. H3 near the threshold (MAE 0.513 vs 0.50 target).
+93.5% of students already exposed to other languages — near-zero variance
+for causal testing. A finding in itself.
+
+From a CSV file and a research question to a deployed ML app
+supporting a doctoral thesis on the ground in Cameroon.
+
+Honoured to build the technical side of Chancelline's journey 🙏
+
+🔗 Dashboard : https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
+📂 GitHub : https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
+👩‍🎓 Chancelline Armelle Nongni Kendjio : https://www.linkedin.com/in/chancelline-armelle-nongni-kendjio-9840582b/
+
+Working on NLP, African languages or ML for social sciences?
+Let's connect 🤝
+
+#MachineLearning #NLP #CamemBERT #MLOps #XGBoost #MLflow
+#DataScience #Sociolinguistics #Cameroon #Streamlit #FastAPI
+#Education #Plurilingualism #AfricaTech #Research #PhD
 
 ---
 
-## X (Twitter) — EN
+## LinkedIn — Chancelline Armelle (FR)
 
-🌍 ML meets sociolinguistics — an interactive dashboard exploring how Cameroonian students perceive learning French in a plurilingual context.
+🌍 Mon dashboard de recherche est en ligne — venez l'essayer !
 
-4 hypotheses • 7 ML models • 3/4 validated ✅
+Dans le cadre de ma thèse doctorale à l'Université Marie & Louis Pasteur
+de Besançon, sous la direction de Serge Borg, j'ai collecté les réponses
+de 500 élèves du secondaire dans 15 établissements au Cameroun.
 
-🔮 Try the live predictions:
+Ma question de recherche :
+« Le contexte plurilingue des élèves camerounais influence-t-il
+leur apprentissage du français ? »
+
+Aujourd'hui, les résultats sont accessibles à tous via un dashboard
+interactif développé avec Albert Womga 👇
 👉 https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔮 CE QUE VOUS POUVEZ FAIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-#MachineLearning #Linguistics #Cameroon #Streamlit
+◆ Simuler le profil d'un élève — âge, langues parlées, attitudes —
+  et voir la prédiction du modèle en temps réel
+
+◆ Explorer les analyses textuelles — nuages de mots,
+  cartes UMAP, stéréotypes détectés, réseaux de co-occurrences
+
+◆ Naviguer entre le français et l'anglais
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 RÉSULTATS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ H1 — Le répertoire multilingue prédit l'usage quotidien ✅
+◆ H2 — La perception du français prédit la motivation ✅
+◆ H3 — L'exposition plurilingue influence l'attitude ⚠️
+◆ H4 — L'intégration des langues locales favorise l'engagement ✅
+
+3 hypothèses sur 4 validées — 7 modèles ML en production.
+Un immense merci à Albert Womga pour avoir construit toute
+l'infrastructure technique de ce projet 🙏
+
+🔗 Dashboard : https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
+📂 Code source : https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
+👨‍💻 Albert Womga : https://www.linkedin.com/in/albert-womga-009a7931/
+
+#Recherche #Linguistique #Cameroun #Plurilinguisme #These #FLES
+#MachineLearning #NLP #Streamlit #DataScience #Education #Afrique
 
 ---
 
-## Instructions
+## X (Twitter) — Albert
 
-1. **LinkedIn** : Poster les versions FR et EN séparément (ou le FR en premier, puis EN en commentaire)
-2. **X/Twitter** : Poster en FR puis EN (thread ou posts séparés)
-3. **Images suggérées** : Une capture d'écran du dashboard (page d'accueil avec les métriques et visualisations)
-4. **Taguer** : @streamlit, @GitHub, université, laboratoire de recherche
-5. **Alt-text** : Décrire les captures pour l'accessibilité
+🌍 LIVE: Interactive ML dashboard for a PhD on how Cameroonian students perceive learning French.
+
+500 students · 15 schools · 4 hypotheses · 7 models
+
+🔮 Try any student profile → instant prediction:
+https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
+
+3/4 hypotheses validated ✅
+CamemBERT + XGBoost + Streamlit
+
+#MachineLearning #NLP #Cameroon #Streamlit #MLOps
+
+---
+
+## X (Twitter) — Chancelline
+
+🌍 Mon dashboard de recherche est en ligne !
+
+500 élèves · 15 établissements · 4 hypothèses
+Le plurilinguisme influence-t-il l'apprentissage du français ?
+
+🔮 Faites vos propres simulations :
+https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
+
+#These #Cameroun #Plurilinguisme #IA #Recherche
+
+---
+
+## Instructions de publication
+
+1. **Albert** poste la version LinkedIn EN en premier (portée internationale + technique)
+2. **Chancelline** poste la version LinkedIn FR dans la foulée (public francophone, recherche)
+3. **Images** : 2-3 captures du dashboard (page d'accueil, une prédiction H1, une carte UMAP)
+4. **Alt-text** : Décrire chaque capture pour l'accessibilité
+5. **X/Twitter** : Poster après LinkedIn, avec lien + capture
+6. **Taguer** : @Streamlit, les universités, laboratoires
