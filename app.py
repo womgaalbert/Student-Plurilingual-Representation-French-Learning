@@ -135,33 +135,37 @@ def t(key: str) -> str:
 
 # ── Load models (cached) — cloud-compatible ────────────────────────────────────
 
-def _repair_sklearn_model(model):
+def _repair_sklearn_model(model, _depth=0):
     """Patch sklearn 1.6 → 1.9 compat: restaure _fill_dtype sur SimpleImputer."""
+    if _depth > 20:
+        return  # safety
     import numpy as _np
     from sklearn.impute import SimpleImputer
     from sklearn.pipeline import Pipeline
-    try:
-        steps = []
-        if isinstance(model, Pipeline):
-            steps = model.steps
-        elif hasattr(model, "estimators_"):
-            # VotingRegressor, ClassifierChain: itérer sur les sous-estimateurs
-            steps = [("est", e) for e in model.estimators_]
-        elif hasattr(model, "named_steps"):
-            steps = model.named_steps.items() if hasattr(model.named_steps, 'items') else []
-        for name, step in steps:
-            if isinstance(step, SimpleImputer) and not hasattr(step, "_fill_dtype"):
-                stats = getattr(step, "statistics_", None)
-                if stats is not None:
-                    step._fill_dtype = _np.result_type(
-                        *[s for s in stats.flat if not _np.isnan(s)]
-                    ) if stats.size > 0 else _np.float64
-                else:
-                    step._fill_dtype = _np.float64
-            elif isinstance(step, (Pipeline,)):
-                _repair_sklearn_model(step)
-    except Exception:
-        pass  # best-effort
+    from sklearn.compose import ColumnTransformer
+
+    # Fix this object if it's a SimpleImputer
+    if isinstance(model, SimpleImputer) and not hasattr(model, "_fill_dtype"):
+        stats = getattr(model, "statistics_", None)
+        if stats is not None and hasattr(stats, "flat"):
+            vals = [s for s in stats.flat if not _np.isnan(s)]
+            model._fill_dtype = _np.result_type(*vals) if vals else _np.float64
+        else:
+            model._fill_dtype = _np.float64
+
+    # Recurse into containers
+    sub_estimators = []
+    if isinstance(model, Pipeline):
+        sub_estimators = [step for _, step in model.steps]
+    elif isinstance(model, ColumnTransformer):
+        sub_estimators = [t[1] for t in getattr(model, "transformers_", [])]
+    elif hasattr(model, "estimators_"):
+        sub_estimators = list(model.estimators_)
+    elif hasattr(model, "estimator"):
+        sub_estimators = [model.estimator]
+
+    for sub in sub_estimators:
+        _repair_sklearn_model(sub, _depth + 1)
 
 @st.cache_resource
 def load_models():
