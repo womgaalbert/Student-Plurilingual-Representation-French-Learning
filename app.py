@@ -135,10 +135,39 @@ def t(key: str) -> str:
 
 # ── Load models (cached) — cloud-compatible ────────────────────────────────────
 
+def _repair_sklearn_model(model):
+    """Patch sklearn 1.6 → 1.9 compat: restaure _fill_dtype sur SimpleImputer."""
+    import numpy as _np
+    from sklearn.impute import SimpleImputer
+    from sklearn.pipeline import Pipeline
+    try:
+        steps = []
+        if isinstance(model, Pipeline):
+            steps = model.steps
+        elif hasattr(model, "estimators_"):
+            # VotingRegressor, ClassifierChain: itérer sur les sous-estimateurs
+            steps = [("est", e) for e in model.estimators_]
+        elif hasattr(model, "named_steps"):
+            steps = model.named_steps.items() if hasattr(model.named_steps, 'items') else []
+        for name, step in steps:
+            if isinstance(step, SimpleImputer) and not hasattr(step, "_fill_dtype"):
+                stats = getattr(step, "statistics_", None)
+                if stats is not None:
+                    step._fill_dtype = _np.result_type(
+                        *[s for s in stats.flat if not _np.isnan(s)]
+                    ) if stats.size > 0 else _np.float64
+                else:
+                    step._fill_dtype = _np.float64
+            elif isinstance(step, (Pipeline,)):
+                _repair_sklearn_model(step)
+    except Exception:
+        pass  # best-effort
+
 @st.cache_resource
 def load_models():
     """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud."""
     import pickle as _pk
+    import numpy as _np
     models, feats = {}, {}
 
     # Dossier models : local ou deploy_cloud (Streamlit Cloud)
@@ -159,6 +188,7 @@ def load_models():
             if files:
                 with open(files[0], "rb") as f:
                     models[key] = _pk.load(f)
+                _repair_sklearn_model(models[key])  # patch sklearn compat
                 try:
                     feats[key] = list(models[key].feature_names_in_)
                 except Exception:
