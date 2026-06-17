@@ -135,38 +135,6 @@ def t(key: str) -> str:
 
 # ── Load models (cached) — cloud-compatible ────────────────────────────────────
 
-def _repair_sklearn_model(model, _depth=0):
-    """Patch sklearn 1.6 → 1.9 compat: restaure _fill_dtype sur SimpleImputer."""
-    if _depth > 20:
-        return  # safety
-    import numpy as _np
-    from sklearn.impute import SimpleImputer
-    from sklearn.pipeline import Pipeline
-    from sklearn.compose import ColumnTransformer
-
-    # Fix this object if it's a SimpleImputer
-    if isinstance(model, SimpleImputer) and not hasattr(model, "_fill_dtype"):
-        stats = getattr(model, "statistics_", None)
-        if stats is not None and hasattr(stats, "flat"):
-            vals = [s for s in stats.flat if not _np.isnan(s)]
-            model._fill_dtype = _np.result_type(*vals) if vals else _np.float64
-        else:
-            model._fill_dtype = _np.float64
-
-    # Recurse into containers
-    sub_estimators = []
-    if isinstance(model, Pipeline):
-        sub_estimators = [step for _, step in model.steps]
-    elif isinstance(model, ColumnTransformer):
-        sub_estimators = [t[1] for t in getattr(model, "transformers_", [])]
-    elif hasattr(model, "estimators_"):
-        sub_estimators = list(model.estimators_)
-    elif hasattr(model, "estimator"):
-        sub_estimators = [model.estimator]
-
-    for sub in sub_estimators:
-        _repair_sklearn_model(sub, _depth + 1)
-
 @st.cache_resource
 def load_models():
     """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud."""
@@ -215,6 +183,30 @@ def load_models():
     _load("h4_c", "h4/*C_discipline_tuned*.pkl", "h4_c")
 
     return models, feats
+
+# ── Monkey-patch: sklearn 1.6 → 1.9 compat pour SimpleImputer ───────────
+_ORIG_TRANSFORM = None
+
+def _patch_simple_imputer():
+    """Injecte _fill_dtype sur tous les SimpleImputer avant transform."""
+    global _ORIG_TRANSFORM
+    from sklearn.impute import SimpleImputer
+    if _ORIG_TRANSFORM is not None:
+        return  # déjà patché
+    _ORIG_TRANSFORM = SimpleImputer.transform
+    def _patched_transform(self, X):
+        if not hasattr(self, "_fill_dtype") or self._fill_dtype is None:
+            import numpy as _np
+            stats = getattr(self, "statistics_", None)
+            if stats is not None and hasattr(stats, "flat"):
+                vals = [s for s in stats.flat if not _np.isnan(s)]
+                self._fill_dtype = _np.result_type(*vals) if vals else _np.float64
+            else:
+                self._fill_dtype = _np.float64
+        return _ORIG_TRANSFORM(self, X)
+    SimpleImputer.transform = _patched_transform
+
+_patch_simple_imputer()
 
 try:
     MODELS, FEATURE_COLS = load_models()
