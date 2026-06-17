@@ -357,6 +357,8 @@ A Priori dans l'espace des embeddings.
 
 def predict(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
     """Pad df with zeros for missing training columns, then predict."""
+    if not model:
+        return np.array([])
     expected = FEATURE_COLS.get(model_key, [])
     for col in expected:
         if col not in df.columns:
@@ -366,6 +368,8 @@ def predict(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
 
 
 def predict_proba(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
+    if not model:
+        return np.array([[]])
     expected = FEATURE_COLS.get(model_key, [])
     for col in expected:
         if col not in df.columns:
@@ -543,6 +547,7 @@ elif hypothesis == t("nav_h1"):
                 "sexe_bin": 1 if sexe in (t("male"), "M") else 0,
                 "age": float(age),
             }])
+            if "h1" not in MODELS: st.error("Modèle H1 non disponible"); st.stop()
             proba = predict_proba(MODELS["h1"], df, "h1")[0, 1]
             pred = t("yes") if proba >= 0.5 else t("no")
 
@@ -631,6 +636,7 @@ elif hypothesis == t("nav_h2"):
                 "sexe_bin": 1 if sexe in (t("male"), "M") else 0,
                 "age": float(age),
             }])
+            if "h2" not in MODELS: st.error("Modèle H2 non disponible"); st.stop()
             pred = int(np.asarray(predict(MODELS["h2"], df, "h2")).flat[0])
             if lang == "FR":
                 labels = {0: "Faible", 1: "Moyenne", 2: "Elevee"}
@@ -716,6 +722,7 @@ elif hypothesis == t("nav_h3"):
                 "age": float(age),
             }])
 
+            if "h3_reg" not in MODELS: st.error("Modèle H3 non disponible"); st.stop()
             score = float(np.asarray(predict(MODELS["h3_reg"], df, "h3_reg")).flat[0])
             classe = int(np.asarray(predict(MODELS["h3_clf"], df, "h3_clf")).flat[0])
             labels = {0: "Negative", 1: ("Neutre" if lang == "FR" else "Neutral"), 2: "Positive"}
@@ -807,6 +814,7 @@ elif hypothesis == t("nav_h4"):
                 "age": float(age),
             }])
 
+            if "h4_a" not in MODELS: st.error("Modèle H4 non disponible"); st.stop()
             proba_motiv = predict_proba(MODELS["h4_a"], df, "h4_a")[0, 1]
             pred_motiv = t("motivated") if proba_motiv >= 0.5 else t("not_motivated")
 
