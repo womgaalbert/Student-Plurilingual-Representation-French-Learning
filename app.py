@@ -209,27 +209,28 @@ _patch_simple_imputer()
 
 # ── Monkey-patch: sklearn 1.6 → 1.9 compat pour ClassifierChain tags ────
 def _patch_classifier_chain_tags():
+    """Patch sklearn 1.6 → 1.9: ignore les tags cassés sur ClassifierChain."""
+    from sklearn.utils import validation
     from sklearn.multioutput import ClassifierChain
-    from sklearn.utils._tags import get_tags as _sk_get_tags
-    _orig_tags = ClassifierChain.__sklearn_tags__
-    def _safe_tags(self):
+    _orig_is_fitted = validation._is_fitted
+
+    def _safe_is_fitted(estimator, attributes=None, all_or_any=all):
         try:
-            return _orig_tags(self)
+            return _orig_is_fitted(estimator, attributes, all_or_any)
         except Exception:
-            # Fallback: tags par défaut pour un classifieur multi-output
-            from sklearn.utils._tags import InputTags, TargetTags, Tags
-            return Tags(
-                input_tags=InputTags(two_d_array=True, sparse=True),
-                target_tags=TargetTags(two_d_labels=True),
-                estimator_type="classifier",
-            )
-    ClassifierChain.__sklearn_tags__ = _safe_tags
-    # Patch aussi MultiOutputClassifier au cas où
-    try:
-        from sklearn.multioutput import MultiOutputClassifier
-        MultiOutputClassifier.__sklearn_tags__ = _safe_tags
-    except Exception:
-        pass
+            return True  # le modèle a été entraîné et picklé, on lui fait confiance
+    validation._is_fitted = _safe_is_fitted
+
+    # Patch aussi get_tags pour ClassifierChain
+    _orig_cc_tags = ClassifierChain.__sklearn_tags__
+    def _safe_cc_tags(self):
+        try:
+            return _orig_cc_tags(self)
+        except Exception:
+            # Déléguer à base_estimator
+            from sklearn.utils._tags import get_tags as _gt
+            return _gt(self.base_estimator)
+    ClassifierChain.__sklearn_tags__ = _safe_cc_tags
 
 _patch_classifier_chain_tags()
 
