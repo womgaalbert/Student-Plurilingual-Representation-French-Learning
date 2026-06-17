@@ -6,75 +6,64 @@
 🌍 The Streamlit dashboard is LIVE — try it now
    — From PhD research to interactive ML app —
 
-A few weeks ago I shared the first results of our collaboration with
+A few weeks ago I shared early results of our collaboration with
 Chancelline Armelle Nongni Kendjio. The pipeline is now deployed.
 
-🎛️ Interactive dashboard → try any student profile :
+🎛️ Dashboard → test any student profile :
 👉 https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
 
-Chancelline collected data from 500 students across 15 schools in Cameroon.
-Her question : "Does the plurilingual background of Cameroonian students
+500 students · 15 schools · Cameroon
+Core question : "Does the plurilingual background of students
 influence how they learn French?"
-
-The dashboard lets you explore her findings — live.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔮 WHAT YOU CAN DO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Predict any student profile across H1, H2, H3, H4
-  → adjust age, languages spoken, attitudes, motivation…
-  → see the model's prediction + probability in real time
+◆ Predict any student profile (H1 to H4)
+  → adjust age, languages, attitudes — instant prediction + probability
 
-◆ Explore descriptive NLP analysis
-  → CamemBERT embeddings + UMAP clusters
-  → A Priori categories (Moscovici & Jodelet framework)
-  → Stereotype detection, co-occurrence networks, n-grams
+◆ Explore NLP insights
+  → CamemBERT embeddings · UMAP clusters · A Priori categories
+  → Stereotype detection · co-occurrence networks · n-grams
 
-◆ Bilingual UI — toggle FR / EN at any time
+◆ Bilingual UI — FR / EN toggle
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 WHERE WE LANDED
+📊 RESULTS — 3/4 HYPOTHESES VALIDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ H1 — Multilingual Repertoire → Daily Language Use
+◆ H1 — Multilingual Repertoire → Daily Use
    XGBoost | F1=0.835 ✅ | AUC=0.851 ✅
 
-◆ H2 — French Perceptions → Motivation & Difficulties
+◆ H2 — French Perceptions → Motivation
    ClassifierChain + XGBoost | F1=0.954 ✅ | F1-micro=0.745 ✅
 
-◆ H3 — Plurilingual Exposure → Attitude toward French
-   VotingRegressor (ET + XGBoost) | MAE=0.513 ⚠️ | F1=0.780 ✅
-   CamemBERT PCA 20D integrated — MAE improved -3.4%
+◆ H3 — Plurilingual Exposure → Attitude
+   VotingRegressor (ET+XGBoost) | MAE=0.513 ⚠️ | F1=0.780 ✅
+   CamemBERT PCA 20D : MAE -3.4% — 93.5% of students already exposed
 
 ◆ H4 — Local Language Integration → Engagement
    XGBoost multi-task | F1=0.807 ✅ | Spearman ρ=0.561 ✅
-   CamemBERT decisive here : ρ 0.476 → 0.561 (+0.085)
+   CamemBERT decisive : ρ 0.476 → 0.561 (+0.085)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚙️ MLOps — LEVEL 2
+⚙️ MLOps LEVEL 2
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ FastAPI — 8 prediction endpoints on port 8001
-✅ MLflow Model Registry — 7 models tracked
-✅ Docker Compose — API + MLflow server
-✅ GitHub Actions — CI/CD pipeline (42 tests, auto-deploy)
-✅ Streamlit Cloud — public dashboard
+✅ FastAPI — 8 endpoints
+✅ MLflow — 7 models tracked
+✅ Docker Compose — API + MLflow
+✅ GitHub Actions — 42 tests, CI/CD
+✅ Streamlit Cloud — live dashboard
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛠️ STACK
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Python · Scikit-learn · XGBoost · LightGBM · CamemBERT (INRIA)
-MLflow · FastAPI · Docker · Streamlit · GitHub Actions
+🛠️ Python · Scikit-learn · XGBoost · LightGBM · CamemBERT · MLflow · Docker
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3/4 hypotheses validated. H3 near the threshold (MAE 0.513 vs 0.50 target).
-93.5% of students already exposed to other languages — near-zero variance
-for causal testing. A finding in itself.
-
-From a CSV file and a research question to a deployed ML app
+From a CSV and a research question to a deployed ML app
 supporting a doctoral thesis on the ground in Cameroon.
 
 Honoured to build the technical side of Chancelline's journey 🙏
 
 🔗 Dashboard : https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/
 📂 GitHub : https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning
-👩‍🎓 Chancelline Armelle Nongni Kendjio : https://www.linkedin.com/in/chancelline-armelle-nongni-kendjio-9840582b/
+👩‍🎓 Chancelline : https://www.linkedin.com/in/chancelline-armelle-nongni-kendjio-9840582b/
 
 Working on NLP, African languages or ML for social sciences?
 Let's connect 🤝
