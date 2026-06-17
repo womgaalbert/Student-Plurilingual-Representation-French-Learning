@@ -40,6 +40,18 @@ def run(config_path: str) -> None:
     mc  = cfg["mlflow"]
     ts  = datetime.now().strftime('%Y%m%d_%H%M')
 
+    # ── Vérification données ─────────────────────────────────────────────
+    raw_path = Path(cfg["data"]["raw_path"])
+    if not raw_path.exists():
+        log.warning(f"Dataset introuvable : {raw_path.absolute()}")
+        log.warning("Le fichier data/raw/data_FLP.csv est absent du repo "
+                     "(gitignoré — propriété privée du chercheur).")
+        log.warning("Pipeline CI : les étapes de données sont ignorées. "
+                     "Les tests unitaires (pytest) restent actifs.")
+        log.warning("Pour lancer le pipeline complet, ajouter data_FLP.csv "
+                     "dans data/raw/ via un GitHub Secret.")
+        return
+
     mlflow.set_tracking_uri(mc["tracking_uri"])
     mlflow.set_experiment("flp_PIPELINE")
 
