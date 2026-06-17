@@ -18,21 +18,38 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import spacy
-import torch
 import mlflow
 from scipy.stats import spearmanr
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.impute import KNNImputer
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import AutoTokenizer, AutoModel
-from umap import UMAP
-from wordcloud import WordCloud
+
+# Lazy imports — packages lourds uniquement pour l'analyse descriptive
+_DEPS_LOADED = False
+
+def _ensure_descriptive_deps():
+    """Charge les packages lourds a la demande (seulement si analyse descriptive)."""
+    global _DEPS_LOADED, nx, spacy, torch, UMAP, WordCloud, AutoTokenizer, AutoModel
+    if _DEPS_LOADED:
+        return
+    import networkx as _nx
+    import spacy as _sp
+    import torch as _t
+    from umap import UMAP as _UMAP
+    from wordcloud import WordCloud as _WC
+    from transformers import AutoTokenizer as _AT, AutoModel as _AM
+    nx = _nx
+    spacy = _sp
+    torch = _t
+    UMAP = _UMAP
+    WordCloud = _WC
+    AutoTokenizer = _AT
+    AutoModel = _AM
+    _DEPS_LOADED = True
 
 from utils.config import load_config
 from utils.constants import (
@@ -398,6 +415,7 @@ def generate_eda_html(
 # ── CamemBERT ─────────────────────────────────────────────────────────────────
 
 def load_camembert(model_name: str, device: str) -> tuple:
+    _ensure_descriptive_deps()
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModel.from_pretrained(model_name).to(device)
     model.eval()
@@ -806,6 +824,7 @@ def run_hypothesis(
     hyp: str, df: pd.DataFrame, cfg: dict,
     tokenizer, model, nlp, device: str,
 ) -> dict:
+    _ensure_descriptive_deps()
     hyp_cfg  = HYP_COLS[hyp]
     dcfg     = cfg["data"]
     descfg   = cfg.get("descriptive", {})
@@ -1022,6 +1041,7 @@ def run(config_path: str, stage: str, hypothesis: str) -> None:
 
 def run_full(config_path: str) -> dict:
     """Entry point for pipeline.py — demographics + H1-H4 phases 1-3 in one shot."""
+    _ensure_descriptive_deps()
     cfg = load_config(config_path)
     Path("logs").mkdir(exist_ok=True)
     Path("reports").mkdir(exist_ok=True)
