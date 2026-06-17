@@ -160,7 +160,6 @@ def load_models():
             if files:
                 with open(files[0], "rb") as f:
                     models[key] = _pk.load(f)
-                _repair_sklearn_model(models[key])  # patch sklearn compat
                 try:
                     feats[key] = list(models[key].feature_names_in_)
                 except Exception:
