@@ -422,21 +422,22 @@ def load_camembert(model_name: str, device: str) -> tuple:
     return tokenizer, model
 
 
-@torch.no_grad()
 def encode_texts(
     texts: list[str], tokenizer, model,
     batch_size: int, max_length: int, device: str,
 ) -> np.ndarray:
+    _ensure_descriptive_deps()
     all_embs = []
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        enc = tokenizer(batch, padding=True, truncation=True,
-                        max_length=max_length, return_tensors="pt")
-        enc = {k: v.to(device) for k, v in enc.items()}
-        out = model(**enc)
-        mask = enc["attention_mask"].unsqueeze(-1).float()
-        emb = (out.last_hidden_state * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
-        all_embs.append(emb.cpu().numpy())
+    with torch.no_grad():
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            enc = tokenizer(batch, padding=True, truncation=True,
+                            max_length=max_length, return_tensors="pt")
+            enc = {k: v.to(device) for k, v in enc.items()}
+            out = model(**enc)
+            mask = enc["attention_mask"].unsqueeze(-1).float()
+            emb = (out.last_hidden_state * mask).sum(1) / mask.sum(1).clamp(min=1e-9)
+            all_embs.append(emb.cpu().numpy())
     return np.vstack(all_embs)
 
 
