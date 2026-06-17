@@ -137,10 +137,14 @@ def t(key: str) -> str:
 
 @st.cache_resource
 def load_models():
-    """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud."""
+    """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud.
+    Cherche d'abord dans models/, puis dans deploy_cloud/models/ (fallback)."""
     import pickle as _pk
     models, feats = {}, {}
-    model_dir = Path("models")
+
+    # Priorité : models/ local, puis deploy_cloud/models/ (Streamlit Cloud)
+    candidates = [Path("models"), Path("deploy_cloud/models")]
+    model_dir = next((d for d in candidates if d.is_dir() and any(d.glob("h*/*.pkl"))), candidates[0])
 
     _latest = lambda pattern: sorted(
         model_dir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True
@@ -181,6 +185,10 @@ def load_models():
     return models, feats
 
 MODELS, FEATURE_COLS = load_models()
+
+if not MODELS:
+    import logging
+    logging.warning("Aucun modele .pkl trouve. L'app fonctionne en mode demo (predictions indisponibles).")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -480,7 +488,7 @@ elif hypothesis == t("nav_h1"):
         age = st.slider(t("age"), 8, 20, 13)
         sexe = st.selectbox(t("gender"), [t("female"), t("male")])
 
-        if st.button(f"{t('predict_btn')} — H1", type="primary", use_container_width=True):
+        if st.button(f"{t('predict_btn')} — H1", type="primary", use_container_width=True, disabled="h1" not in MODELS):
             df = pd.DataFrame([{
                 "nb_langues": nb_langues,
                 "apprent_anterieur_bin": 1 if apprent in ("Oui", "Yes") else 0,
@@ -566,7 +574,7 @@ elif hypothesis == t("nav_h2"):
         age = st.slider(t("age"), 8, 20, 13)
         sexe = st.selectbox(t("gender"), [t("female"), t("male")])
 
-        if st.button(f"{t('predict_btn')} — H2", type="primary", use_container_width=True):
+        if st.button(f"{t('predict_btn')} — H2", type="primary", use_container_width=True, disabled="h2" not in MODELS):
             hier_map = {"Plus important": 3, "Autant important": 2, "Moins important": 1,
                         "More important": 3, "Equally important": 2, "Less important": 1}
             df = pd.DataFrame([{
@@ -651,7 +659,7 @@ elif hypothesis == t("nav_h3"):
         age = st.slider(t("age"), 8, 20, 13)
         sexe = st.selectbox(t("gender"), [t("female"), t("male")])
 
-        if st.button(f"{t('predict_btn')} — H3", type="primary", use_container_width=True):
+        if st.button(f"{t('predict_btn')} — H3", type="primary", use_container_width=True, disabled="h3_reg" not in MODELS):
             df = pd.DataFrame([{
                 "exposition_bin": 1 if exposition in ("Oui", "Yes") else 0,
                 "interet_bin": 1 if interet in ("Oui", "Yes") else 0,
@@ -745,7 +753,7 @@ elif hypothesis == t("nav_h4"):
         age = st.slider(t("age"), 8, 20, 12)
         sexe = st.selectbox(t("gender"), [t("female"), t("male")])
 
-        if st.button(f"{t('predict_btn')} — H4", type="primary", use_container_width=True):
+        if st.button(f"{t('predict_btn')} — H4", type="primary", use_container_width=True, disabled="h4_a" not in MODELS):
             df = pd.DataFrame([{
                 "interet_camarades_ord": interet_map[interet_camarades],
                 "interet_camarades_sent": interet_sent,
