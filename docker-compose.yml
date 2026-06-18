@@ -12,6 +12,7 @@ services:
       - ./models:/app/models:ro
       - ./params.yaml:/app/params.yaml:ro
       - ./mlflow.db:/app/mlflow.db
+      - ./data:/app/data:ro
       - ./monitoring:/app/monitoring
     environment:
       - PYTHONUNBUFFERED=1
