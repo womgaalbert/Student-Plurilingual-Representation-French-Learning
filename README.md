@@ -3,7 +3,7 @@
 [![CI — Tests](https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning/actions/workflows/ci.yml/badge.svg)](https://github.com/womgaalbert/Student-Plurilingual-Representation-French-Learning/actions/workflows/ci.yml)
 [![Streamlit Cloud](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://student-plurilingual-representation-french-learning-htyukpvkoo.streamlit.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![MLOps Level](https://img.shields.io/badge/MLOps-Level%202-green)]()
+[![MLOps Level](https://img.shields.io/badge/MLOps-Level%203-brightgreen)]()
 
 > **ML Research Platform** | MLOps Level 2 | FastAPI · Docker · Streamlit Cloud
 
@@ -107,6 +107,7 @@ docker compose up --build -d
 │   ├── raw/                     ← READ-ONLY (NEVER versioned)
 │   └── processed/               ← Pipeline outputs
 ├── models/h{1-4}/               ← Serialized models (gitignored)
+├── monitoring/                  ← MLOps Level 3: drift, alerts, Grafana
 ├── mlruns/                      ← MLflow tracking store
 ├── reports/                     ← Evaluation + demographics reports
 ├── tests/
@@ -128,7 +129,7 @@ docker compose up --build -d
 ✅ Level 0  Manual scripts, params.yaml, data separation, 42 unit tests
 ✅ Level 1  Automated pipeline (preprocess→H1→H4→evaluate), MLflow tracking
 ✅ Level 2  CI/CD (GitHub Actions), FastAPI /predict, Docker Compose, Streamlit Cloud
-🔲 Level 3  Drift detection (Evidently AI), auto-retraining, Grafana monitoring
+✅ Level 3  Drift detection (Evidently + scipy), Prometheus/Grafana, auto-retrain workflow
 ```
 
 ---
@@ -144,6 +145,7 @@ docker compose up --build -d
 | Dashboard | Streamlit (bilingual FR/EN, live predictions) |
 | Containerization | Docker + Docker Compose |
 | CI/CD | GitHub Actions (3 workflows, 42 tests) |
+| Monitoring (Level 3) | Evidently AI, Prometheus, Grafana, alerting |
 | Visualization | Matplotlib, Seaborn, UMAP, NetworkX, WordCloud |
 | Tests | pytest + pytest-cov (42 tests, Windows + Linux) |
 | Environment | Python 3.10+ · Windows · Ubuntu |
