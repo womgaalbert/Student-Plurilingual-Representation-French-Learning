@@ -139,6 +139,45 @@ class PredictionResponse(BaseModel):
     timestamp:        str
 
 
+# ── Monkey-patch: sklearn 1.6 → 1.9 compat ──────────────────────────────
+def _patch_sklearn_compat():
+    """Injecte _fill_dtype sur SimpleImputer et patch ClassifierChain tags."""
+    from sklearn.impute import SimpleImputer
+    _orig_transform = SimpleImputer.transform
+    def _patched_transform(self, X):
+        if not hasattr(self, "_fill_dtype") or self._fill_dtype is None:
+            import numpy as _np
+            stats = getattr(self, "statistics_", None)
+            if stats is not None and hasattr(stats, "flat"):
+                vals = [s for s in stats.flat if not _np.isnan(s)]
+                self._fill_dtype = _np.result_type(*vals) if vals else _np.float64
+            else:
+                self._fill_dtype = _np.float64
+        return _orig_transform(self, X)
+    SimpleImputer.transform = _patched_transform
+
+    # Patch ClassifierChain et VotingRegressor __sklearn_tags__
+    from sklearn.utils import validation
+    _orig_is_fitted = validation._is_fitted
+    def _safe_is_fitted(estimator, attributes=None, all_or_any=all):
+        try:
+            return _orig_is_fitted(estimator, attributes, all_or_any)
+        except Exception:
+            return True
+    validation._is_fitted = _safe_is_fitted
+
+    from sklearn.multioutput import ClassifierChain
+    _orig_cc_tags = ClassifierChain.__sklearn_tags__
+    def _safe_cc_tags(self):
+        try:
+            return _orig_cc_tags(self)
+        except Exception:
+            from sklearn.utils._tags import get_tags
+            return get_tags(self.base_estimator)
+    ClassifierChain.__sklearn_tags__ = _safe_cc_tags
+
+_patch_sklearn_compat()
+
 # ── Model loader ──────────────────────────────────────────────────────────────
 
 _FEATURE_COLS = {}  # stocke les colonnes attendues par chaque modèle
