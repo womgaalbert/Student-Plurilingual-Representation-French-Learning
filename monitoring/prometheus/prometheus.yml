@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "flp-api"
+    scrape_interval: 30s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8001"]

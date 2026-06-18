@@ -104,3 +104,24 @@ h4:
     max_depth:         [3, 4, 5]
     learning_rate:     [0.05, 0.08, 0.10, 0.15]
     scale_pos_weight:  [1, 2, 5, 10]
+
+# ── MLOps Level 3 — Monitoring & Auto-retraining ──────────────────────────
+monitoring:
+  prediction_db:      "monitoring/predictions.db"
+
+  drift:
+    enabled:           true
+    window_size:       200              # nombre de prédictions par fenêtre de drift
+    drift_threshold:   0.3              # ratio de features en drift → alerte (0.0-1.0)
+    check_interval_h:  24               # intervalle entre checks automatiques (heures)
+    reference_data_path: "data/processed/"
+    report_dir:         "monitoring/reports/"
+
+  alert:
+    alerts_dir:        "monitoring/alerts/"
+    min_severity:      "WARNING"        # INFO | WARNING | CRITICAL
+    github_dispatch:   false            # déclencher retrain via GitHub API
+
+  prometheus:
+    enabled:           true
+    port:              8001             # réutilise le port API pour /metrics

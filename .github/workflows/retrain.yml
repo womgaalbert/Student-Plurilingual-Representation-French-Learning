@@ -1,0 +1,116 @@
+# .github/workflows/retrain.yml — MLOps Level 3
+# Auto-retraining pipeline: weekly schedule + drift-triggered + manual
+#
+# Triggers:
+#   1. Weekly cron (Monday 7am UTC)
+#   2. Manual dispatch from GitHub Actions UI
+#   3. repository_dispatch (called by alert.py on drift detection)
+
+name: Retrain Pipeline (MLOps Level 3)
+
+"on":
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Forcer le retrain même sans drift"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  repository_dispatch:
+    types: [drift_detected]
+
+jobs:
+  check-data:
+    runs-on: ubuntu-latest
+    outputs:
+      data_available: ${{ steps.check.outputs.data_available }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check raw data
+        id: check
+        run: |
+          if [ -f "data/raw/data_FLP.csv" ]; then
+            echo "data_available=true" >> $GITHUB_OUTPUT
+            echo "✅ Données disponibles — retrain possible"
+          else
+            echo "data_available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ data_FLP.csv absent — retrain désactivé (données = propriété privée du chercheur)"
+          fi
+
+  retrain:
+    needs: [check-data]
+    if: needs.check-data.outputs.data_available == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      - name: Run full pipeline
+        run: python src/pipeline.py --config params.yaml
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Evaluate models
+        run: python src/evaluate.py --config params.yaml
+
+      - name: Log retrain to MLflow
+        run: |
+          python -c "
+          import mlflow
+          from datetime import datetime
+          mlflow.set_tracking_uri('sqlite:///mlflow.db')
+          trigger = 'scheduled' if '${{ github.event_name }}' == 'schedule' else '${{ github.event_name }}'
+          with mlflow.start_run(run_name=f'retrain_{datetime.now().strftime(\"%Y%m%d_%H%M\")}') as run:
+              mlflow.set_tag('trigger', trigger)
+              mlflow.set_tag('workflow', 'retrain_level3')
+              print(f'Retrain logged: {run.info.run_id}')
+          "
+
+      - name: Upload retrained models
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-models
+          path: models/
+
+      - name: Notify success
+        run: |
+          echo "✅ Retraining completed — $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "Pipeline: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Retraining failed — $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  skipped:
+    needs: [check-data]
+    if: needs.check-data.outputs.data_available != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrain skipped
+        run: |
+          echo "✅ Retrain ignoré — données brutes absentes du repo (protégées)" >> $GITHUB_STEP_SUMMARY
+          echo "Pour activer le retrain automatique : ajouter data_FLP.csv via un GitHub Secret"
