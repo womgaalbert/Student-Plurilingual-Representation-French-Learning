@@ -12,6 +12,7 @@ services:
       - ./models:/app/models:ro
       - ./params.yaml:/app/params.yaml:ro
       - ./mlflow.db:/app/mlflow.db
+      - ./monitoring:/app/monitoring
     environment:
       - PYTHONUNBUFFERED=1
       - API_PORT=${API_PORT:-8001}
@@ -40,3 +41,38 @@ services:
       --host 0.0.0.0
       --port 5000
     restart: unless-stopped
+
+  # ── Prometheus (MLOps Level 3) ───────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: flp-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/:/etc/prometheus/:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    restart: unless-stopped
+
+  # ── Grafana (MLOps Level 3) ──────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: flp-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/datasources/:/etc/grafana/provisioning/datasources/:ro
+      - ./monitoring/grafana/dashboards/:/etc/grafana/provisioning/dashboards/:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/flp_dashboard.json
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

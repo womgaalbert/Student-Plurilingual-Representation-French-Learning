@@ -21,6 +21,8 @@ Endpoints:
 """
 import os
 import sys
+import time
+import logging
 from pathlib import Path
 import pickle
 from datetime import datetime
@@ -30,7 +32,15 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
+
+# ── Prometheus (MLOps Level 3) ──────────────────────────────────────────
+try:
+    from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LATEST
+    _PROMETHEUS = True
+except ImportError:
+    _PROMETHEUS = False
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -53,6 +63,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Prometheus metrics (MLOps Level 3) ──────────────────────────────────
+if _PROMETHEUS:
+    PREDICTION_COUNTER = Counter(
+        "flp_predictions_total", "Total predictions per model",
+        ["model_key"],
+    )
+    PREDICTION_LATENCY = Histogram(
+        "flp_prediction_latency_seconds", "Prediction latency in seconds",
+        ["model_key"],
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+    )
+    DRIFT_GAUGE = Gauge(
+        "flp_drift_ratio", "Data drift ratio per model (0=no drift, 1=full drift)",
+        ["model_key"],
+    )
+else:
+    PREDICTION_COUNTER = None
+    PREDICTION_LATENCY = None
+    DRIFT_GAUGE = None
 
 
 # ── Pydantic schemas ─────────────────────────────────────────────────────────
@@ -204,6 +234,59 @@ def _fmt_resp(pred, proba=None, model_key="") -> PredictionResponse:
     )
 
 
+# ── Prediction logging (MLOps Level 3) ──────────────────────────────────
+_log = logging.getLogger("api.monitoring")
+_PRED_DB_PATH = None
+
+
+def _init_monitoring():
+    """Initialize prediction logging DB from config."""
+    global _PRED_DB_PATH
+    db = cfg.get("monitoring", {}).get("prediction_db", "monitoring/predictions.db")
+    _PRED_DB_PATH = Path(db)
+    _PRED_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from monitoring.prediction_logger import init_predictions_db
+        init_predictions_db(_PRED_DB_PATH)
+    except Exception as e:
+        _log.warning("Monitoring DB init skipped: %s", e)
+
+
+def _log_and_return(
+    model_key: str,
+    input_data: BaseModel,
+    prediction,
+    probability: Optional[float],
+    response: PredictionResponse,
+    start_time: float,
+) -> PredictionResponse:
+    """Log prediction to DB + Prometheus, then return response. Never fails."""
+    latency_ms = (time.perf_counter() - start_time) * 1000.0
+    # Prometheus
+    if PREDICTION_COUNTER:
+        try:
+            PREDICTION_COUNTER.labels(model_key=model_key).inc()
+            PREDICTION_LATENCY.labels(model_key=model_key).observe(latency_ms / 1000.0)
+        except Exception:
+            pass
+    # SQLite
+    if _PRED_DB_PATH:
+        try:
+            from monitoring.prediction_logger import log_prediction
+            log_prediction(
+                db_path=_PRED_DB_PATH,
+                model_key=model_key,
+                model_version="latest",
+                input_data=input_data.model_dump(),
+                prediction=str(prediction),
+                probability=probability,
+                latency_ms=latency_ms,
+            )
+        except Exception as e:
+            _log.warning("Prediction log skip: %s", e)
+    return response
+
+
 # ── Startup ──────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
@@ -213,6 +296,7 @@ def startup():
         print("[WARN] Aucun modele charge — executez d'abord le pipeline d'entrainement")
     else:
         print(f"[OK] {len(loaded)} modeles charges : {loaded}")
+    _init_monitoring()
 
 
 # ── Health ───────────────────────────────────────────────────────────────────
@@ -227,16 +311,77 @@ def list_models():
     return {"models": list(MODELS.keys()), "details": cfg["mlflow"]["models"]}
 
 
+# ── Prometheus /metrics (MLOps Level 3) ──────────────────────────────────
+
+@app.get("/metrics")
+def metrics():
+    """Prometheus scraping endpoint for Grafana dashboards."""
+    if not _PROMETHEUS:
+        raise HTTPException(501, "prometheus_client not installed")
+    return Response(
+        content=generate_latest(REGISTRY),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+
+
+# ── Drift check (MLOps Level 3) ──────────────────────────────────────────
+
+@app.post("/drift/check/{model_key}")
+def run_drift_check(model_key: str):
+    """Trigger drift detection for a model against reference data."""
+    from monitoring.drift_detector import detect_drift, build_reference_data
+    from monitoring.prediction_logger import get_recent_predictions, get_db_path
+    from monitoring.alert import check_and_alert
+
+    mc = cfg.get("monitoring", {}).get("drift", {})
+    window = mc.get("window_size", 200)
+    threshold = mc.get("drift_threshold", 0.3)
+    ref_dir = Path(mc.get("reference_data_path", "data/processed/"))
+    report_dir = Path(mc.get("report_dir", "monitoring/reports/"))
+    alert_file = Path(cfg.get("monitoring", {}).get("alert", {}).get(
+        "alerts_dir", "monitoring/alerts/")) / "alerts.ndjson"
+
+    # Reference data
+    hyp = "".join(c for c in model_key if not c.isdigit() and c != "_")
+    ref_csv = ref_dir / f"{hyp}_features.csv"
+    if not ref_csv.exists():
+        ref_csv = ref_dir / "h1_features.csv"  # fallback
+    if not ref_csv.exists():
+        raise HTTPException(503, f"Reference data not found: {ref_csv}")
+
+    reference = build_reference_data(ref_csv, model_key)
+    current = get_recent_predictions(_PRED_DB_PATH or get_db_path(), model_key, limit=window)
+
+    if len(current) < 10:
+        return {"status": "insufficient_data", "n_predictions": len(current)}
+
+    result = detect_drift(reference, current, model_key, threshold, report_dir)
+
+    # Check alerts
+    check_and_alert(result, alert_file)
+
+    # Update Prometheus gauge
+    if DRIFT_GAUGE:
+        try:
+            DRIFT_GAUGE.labels(model_key=model_key).set(result["drift_ratio"])
+        except Exception:
+            pass
+
+    return result
+
+
 # ── H1 — Usage quotidien des langues ─────────────────────────────────────────
 
 @app.post("/predict/h1", response_model=PredictionResponse)
 def predict_h1(data: H1Input):
     if "h1" not in MODELS:
         raise HTTPException(503, "Modèle H1 non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h1")
     proba = MODELS["h1"].predict_proba(df)[0, 1]
     pred  = "Oui" if proba >= 0.5 else "Non"
-    return _fmt_resp(pred, proba, "h1")
+    resp = _fmt_resp(pred, proba, "h1")
+    return _log_and_return("h1", data, pred, proba, resp, _t0)
 
 
 # ── H2 — Motivation & Difficultés ────────────────────────────────────────────
@@ -245,10 +390,13 @@ def predict_h1(data: H1Input):
 def predict_h2_motivation(data: H2MotivationInput):
     if "h2" not in MODELS:
         raise HTTPException(503, "Modèle H2 non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h2")
     pred = MODELS["h2"].predict(df)[0]
     labels = {0: "Faible", 1: "Moyenne", 2: "Élevée"}
-    return _fmt_resp(labels.get(pred, str(pred)), model_key="h2")
+    label = labels.get(pred, str(pred))
+    resp = _fmt_resp(label, model_key="h2")
+    return _log_and_return("h2", data, label, None, resp, _t0)
 
 
 DIFF_LABELS = ["grammaire", "vocabulaire", "orthographe", "conjugaison",
@@ -258,10 +406,13 @@ DIFF_LABELS = ["grammaire", "vocabulaire", "orthographe", "conjugaison",
 def predict_h2_difficultes(data: H2MotivationInput):
     if "h2" not in MODELS:
         raise HTTPException(503, "Modèle H2 non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h2")
     preds = MODELS["h2"].predict(df)[0]
     detected = [DIFF_LABELS[i] for i, v in enumerate(preds) if v == 1]
-    return _fmt_resp(", ".join(detected) if detected else "Aucune", model_key="h2")
+    label = ", ".join(detected) if detected else "Aucune"
+    resp = _fmt_resp(label, model_key="h2")
+    return _log_and_return("h2", data, label, None, resp, _t0)
 
 
 
@@ -271,19 +422,24 @@ def predict_h2_difficultes(data: H2MotivationInput):
 def predict_h3_attitude(data: H3AttitudeInput):
     if "h3_reg" not in MODELS:
         raise HTTPException(503, "Modèle H3 regression non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h3_reg")
-    score = float(MODELS["h3_reg"].predict(df)[0])
-    return _fmt_resp(round(score, 2), model_key="h3")
+    score = round(float(MODELS["h3_reg"].predict(df)[0]), 2)
+    resp = _fmt_resp(score, model_key="h3")
+    return _log_and_return("h3_reg", data, score, None, resp, _t0)
 
 
 @app.post("/predict/h3/classification", response_model=PredictionResponse)
 def predict_h3_classification(data: H3AttitudeInput):
     if "h3_clf" not in MODELS:
         raise HTTPException(503, "Modèle H3 classification non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h3_clf")
     pred = int(MODELS["h3_clf"].predict(df)[0])
     labels = {0: "Négative", 1: "Neutre", 2: "Positive"}
-    return _fmt_resp(labels.get(pred, str(pred)), model_key="h3")
+    label = labels.get(pred, str(pred))
+    resp = _fmt_resp(label, model_key="h3")
+    return _log_and_return("h3_clf", data, label, None, resp, _t0)
 
 
 # ── H4 — Intégration langues locales ─────────────────────────────────────────
@@ -292,19 +448,23 @@ def predict_h3_classification(data: H3AttitudeInput):
 def predict_h4_motivation(data: H4MotivationInput):
     if "h4_a" not in MODELS:
         raise HTTPException(503, "Modèle H4 motivation non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h4_a")
     proba = MODELS["h4_a"].predict_proba(df)[0, 1]
     pred  = "Motivé" if proba >= 0.5 else "Peu motivé"
-    return _fmt_resp(pred, proba, "h4")
+    resp = _fmt_resp(pred, proba, "h4")
+    return _log_and_return("h4_a", data, pred, proba, resp, _t0)
 
 
 @app.post("/predict/h4/engagement", response_model=PredictionResponse)
 def predict_h4_engagement(data: H4EngagementInput):
     if "h4_b" not in MODELS:
         raise HTTPException(503, "Modèle H4 engagement non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h4_b")
-    score = int(MODELS["h4_b"].predict(df)[0] + 1)  # 0-indexed
-    return _fmt_resp(score, model_key="h4")
+    score = int(MODELS["h4_b"].predict(df)[0] + 1)
+    resp = _fmt_resp(score, model_key="h4")
+    return _log_and_return("h4_b", data, score, None, resp, _t0)
 
 
 DISC_LABELS = ["vocabulaire", "grammaire", "lecture", "expression_orale", "conjugaison"]
@@ -313,10 +473,13 @@ DISC_LABELS = ["vocabulaire", "grammaire", "lecture", "expression_orale", "conju
 def predict_h4_disciplines(data: H4DisciplinesInput):
     if "h4_c" not in MODELS:
         raise HTTPException(503, "Modèle H4 disciplines non disponible")
+    _t0 = time.perf_counter()
     df = _df_from_input(data, "h4_c")
     preds = MODELS["h4_c"].predict(df)[0]
     detected = [DISC_LABELS[i] for i, v in enumerate(preds) if v == 1]
-    return _fmt_resp(", ".join(detected) if detected else "Aucune", model_key="h4")
+    label = ", ".join(detected) if detected else "Aucune"
+    resp = _fmt_resp(label, model_key="h4")
+    return _log_and_return("h4_c", data, label, None, resp, _t0)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
