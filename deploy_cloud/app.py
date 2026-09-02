@@ -146,6 +146,12 @@ def load_models():
     """Charge les modeles .pkl directement (sans FastAPI) pour Streamlit Cloud."""
     import pickle as _pk
     models, feats = {}, {}
+
+    if USE_DATABRICKS:
+        # Databricks live mode: no pickles, no sklearn/xgboost/mlflow needed —
+        # predictions go straight to the Model Serving endpoint over HTTP.
+        return models, feats
+
     model_dir = Path("models")
 
     _latest = lambda pattern: sorted(
@@ -374,9 +380,14 @@ st.sidebar.markdown("---")
 st.sidebar.markdown(f"**{t('sidebar_ml')}**")
 st.sidebar.markdown("Albert Womga")
 st.sidebar.markdown("---")
-st.sidebar.caption(f"{t('sidebar_models')} : {len(MODELS)}")
-for k in MODELS:
-    st.sidebar.caption(f"  • {k}")
+if USE_DATABRICKS:
+    st.sidebar.caption(f"{t('sidebar_models')} : 8 (via Databricks Model Serving)")
+    for k in ["h1", "h2", "h3_reg", "h3_clf", "h4_a", "h4_b", "h4_c"]:
+        st.sidebar.caption(f"  • {k}")
+else:
+    st.sidebar.caption(f"{t('sidebar_models')} : {len(MODELS)}")
+    for k in MODELS:
+        st.sidebar.caption(f"  • {k}")
 
 if USE_DATABRICKS:
     st.sidebar.success("🟢 Inference : Databricks Model Serving (live)")
