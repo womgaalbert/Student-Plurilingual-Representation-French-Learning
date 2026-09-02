@@ -1,0 +1,115 @@
+{
+  "name": "FLP — Full ML Pipeline (Databricks Serverless)",
+  "description": "French-Learning-Perceptions ML pipeline on serverless compute: setup → preprocess → train H1-H4 → evaluate.",
+  "tags": {
+    "project": "french-learning-perceptions",
+    "team": "ml-engineering",
+    "environment": "production"
+  },
+  "schedule": {
+    "quartz_cron_expression": "0 0 7 ? * MON",
+    "timezone_id": "UTC",
+    "pause_status": "PAUSED"
+  },
+  "max_concurrent_runs": 1,
+  "tasks": [
+    {
+      "task_key": "setup",
+      "description": "Unity Catalog structure, Delta raw table, MLflow experiments",
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/00_setup_environment",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 1800
+    },
+    {
+      "task_key": "preprocess",
+      "description": "Load raw CSV from Volume, filter consent, anonymize, build features H1-H4",
+      "depends_on": [{"task_key": "setup"}],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/01_preprocess",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 1800
+    },
+    {
+      "task_key": "train_h1",
+      "description": "Train H1: XGBoost binary classifier with SMOTE",
+      "depends_on": [{"task_key": "preprocess"}],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/02_train_h1",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "train_h2",
+      "description": "Train H2: Multi-output XGBoost (motivation + difficulties)",
+      "depends_on": [{"task_key": "preprocess"}],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/03_train_h2",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "train_h3",
+      "description": "Train H3: Regression + classification + causal analysis",
+      "depends_on": [{"task_key": "preprocess"}],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/04_train_h3",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "train_h4",
+      "description": "Train H4: Multi-label + ordinal (motivation, engagement, discipline)",
+      "depends_on": [{"task_key": "preprocess"}],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/05_train_h4",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "evaluate",
+      "description": "Global evaluation: validate thresholds, generate pedagogical report",
+      "depends_on": [
+        {"task_key": "train_h1"},
+        {"task_key": "train_h2"},
+        {"task_key": "train_h3"},
+        {"task_key": "train_h4"}
+      ],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/06_evaluate",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 1800
+    },
+    {
+      "task_key": "serving_bundle",
+      "description": "Bundle all 8 models into one pyfunc + register flp_all (latest versions)",
+      "depends_on": [
+        {"task_key": "evaluate"}
+      ],
+      "notebook_task": {
+        "notebook_path": "/Shared/FLP/07_combine_models",
+        "source": "WORKSPACE"
+      },
+      "compute": {"kind": "SERVERLESS"},
+      "timeout_seconds": 1800
+    }
+  ],
+  "notification_settings": {
+    "on_failure": [],
+    "on_success": []
+  }
+}

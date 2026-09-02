@@ -13,6 +13,12 @@ import pandas as pd
 import numpy as np
 import pickle
 
+try:
+    import databricks_backend
+    USE_DATABRICKS = databricks_backend.available()
+except Exception:
+    USE_DATABRICKS = False
+
 st.set_page_config(
     page_title="FLP Dashboard",
     page_icon="🌍",
@@ -182,6 +188,11 @@ def load_models():
 
 MODELS, FEATURE_COLS = load_models()
 
+if USE_DATABRICKS and not MODELS:
+    # Live mode without local pickles: placeholders, calls are dispatched to Databricks
+    MODELS = {k: None for k in
+              ["h1", "h2", "h3_reg", "h3_clf", "h4_a", "h4_b", "h4_c"]}
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 DESCRIPTIVE_DIRS = {
@@ -304,6 +315,11 @@ A Priori dans l'espace des embeddings.
 
 def predict(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
     """Pad df with zeros for missing training columns, then predict."""
+    if USE_DATABRICKS:
+        with st.spinner("🟢 Databricks — réveil du modèle (1-2 min si inactif)…"
+                        if st.session_state.lang == "FR"
+                        else "🟢 Databricks — waking the model (1-2 min if idle)…"):
+            return databricks_backend.predict(model_key, df)
     expected = FEATURE_COLS.get(model_key, [])
     for col in expected:
         if col not in df.columns:
@@ -313,6 +329,11 @@ def predict(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
 
 
 def predict_proba(model, df: pd.DataFrame, model_key: str) -> np.ndarray:
+    if USE_DATABRICKS:
+        with st.spinner("🟢 Databricks — réveil du modèle (1-2 min si inactif)…"
+                        if st.session_state.lang == "FR"
+                        else "🟢 Databricks — waking the model (1-2 min if idle)…"):
+            return databricks_backend.predict_proba(model_key, df)
     expected = FEATURE_COLS.get(model_key, [])
     for col in expected:
         if col not in df.columns:
@@ -356,6 +377,11 @@ st.sidebar.markdown("---")
 st.sidebar.caption(f"{t('sidebar_models')} : {len(MODELS)}")
 for k in MODELS:
     st.sidebar.caption(f"  • {k}")
+
+if USE_DATABRICKS:
+    st.sidebar.success("🟢 Inference : Databricks Model Serving (live)")
+else:
+    st.sidebar.info("🟡 Inference : modele local (.pkl)")
 
 # ── Home ──────────────────────────────────────────────────────────────────────
 

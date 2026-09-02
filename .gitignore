@@ -25,6 +25,7 @@ logs/
 !logs/.gitkeep
 reports/
 !reports/.gitkeep
+monitoring/*.db
 
 # ── Notebooks checkpoints ─────────────────────────────────────────
 .ipynb_checkpoints/
@@ -44,3 +45,5 @@ desktop.ini
 .env
 *.env
 secrets.yaml
+.streamlit/secrets.toml
+deploy_cloud/.streamlit/secrets.toml

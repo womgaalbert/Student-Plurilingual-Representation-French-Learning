@@ -1,0 +1,20 @@
+{
+  "name": "flp-all-models",
+  "description": "Single Model Serving endpoint hosting all 8 FLP models wrapped in one pyfunc entity (flp_catalog.models.flp_all). Dispatch via the 'model_name' input column: h1, h2a, h2b, h3r, h3c, h4a, h4b, h4c, or all. Note: free-tier workspace allows only 2 endpoints / 2 provisioned concurrency, hence the single combined entity.",
+  "config": {
+    "served_entities": [
+      {
+        "name": "flp-all",
+        "entity_name": "flp_catalog.models.flp_all",
+        "entity_version": "3",
+        "workload_size": "Small",
+        "scale_to_zero_enabled": true
+      }
+    ],
+    "traffic_config": {
+      "routes": [
+        {"served_model_name": "flp-all", "traffic_percentage": 100}
+      ]
+    }
+  }
+}
