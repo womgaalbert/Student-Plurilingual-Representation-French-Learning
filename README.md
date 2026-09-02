@@ -155,6 +155,22 @@ mlflow ui --backend-store-uri mlruns --port 5000
 - Scale-to-zero note: the first call after idle takes 1–2 min (the UI shows a
   "waking the model" spinner).
 
+### Deploy a dedicated Streamlit app from THIS repo
+
+Create a second app (separate from the original dashboard) so this repo is
+self-contained and freely modifiable:
+
+1. https://share.streamlit.io/ → **Create app** → *Deploy a public app from GitHub*
+2. Repository: `womgaalbert/Student-Plurilingual-Representation-French-Learning-Databricks`
+3. Branch: `main` — Main file path: `deploy_cloud/app.py`
+4. App URL: choose e.g. `flp-databricks` → https://flp-databricks.streamlit.app/
+5. Deploy → then Settings → Secrets:
+   ```toml
+   DATABRICKS_HOST = "https://dbc-9e268203-7090.cloud.databricks.com"
+   DATABRICKS_TOKEN = "dapi..."
+   ```
+6. Reboot → sidebar shows `🟢 Inference : Databricks Model Serving (live)`
+
 ---
 
 ## ⚙️ Tech Stack
